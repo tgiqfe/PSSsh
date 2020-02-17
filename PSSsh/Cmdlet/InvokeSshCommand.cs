@@ -58,14 +58,14 @@ namespace PSSsh.Cmdlet
                 Collection<PSObject> invokeResult = InvokeCommand.InvokeScript(
                     SessionState,
                     InvokeCommand.NewScriptBlock(string.Format(
-                        "Get-Content \"{0}\" | ConvertTo-SecureString", PasswordFile)));
+                        "[System.Runtime.InteropServices.Marshal]::PtrToStringBSTR(" +
+                        "[System.Runtime.InteropServices.Marshal]::SecureStringToBSTR(" +
+                        "(Get-Content \"{0}\" | ConvertTo-SecureString)))", PasswordFile)));
                 if (invokeResult != null && invokeResult.Count > 0)
                 {
                     Password = invokeResult[0].ToString();
                 }
             }
-
-
 
             bool debugMode = false;
 #if DEBUG

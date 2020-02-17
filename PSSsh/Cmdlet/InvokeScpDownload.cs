@@ -8,6 +8,7 @@ using Renci.SshNet;
 using Renci.SshNet.Common;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Collections.ObjectModel;
 
 namespace PSSsh.Cmdlet
 {
@@ -28,6 +29,9 @@ namespace PSSsh.Cmdlet
         [LogIgnore]
         public string Password { get; set; }
         [Parameter]
+        [LogNotNull]
+        public string PasswordFile { get; set; }
+        [Parameter]
         [LogIgnore]
         public PSCredential Credential { get; set; }
         [Parameter]
@@ -47,6 +51,19 @@ namespace PSSsh.Cmdlet
             {
                 User = Credential.UserName;
                 Password = Marshal.PtrToStringUni(Marshal.SecureStringToGlobalAllocUnicode(Credential.Password));
+            }
+            else if (!string.IsNullOrEmpty(PasswordFile) && File.Exists(PasswordFile))
+            {
+                Collection<PSObject> invokeResult = InvokeCommand.InvokeScript(
+                    SessionState,
+                    InvokeCommand.NewScriptBlock(string.Format(
+                        "[System.Runtime.InteropServices.Marshal]::PtrToStringBSTR(" +
+                        "[System.Runtime.InteropServices.Marshal]::SecureStringToBSTR(" +
+                        "(Get-Content \"{0}\" | ConvertTo-SecureString)))", PasswordFile)));
+                if (invokeResult != null && invokeResult.Count > 0)
+                {
+                    Password = invokeResult[0].ToString();
+                }
             }
 
             bool debugMode = false;
