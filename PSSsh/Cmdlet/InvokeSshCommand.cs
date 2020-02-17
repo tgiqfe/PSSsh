@@ -77,7 +77,8 @@ namespace PSSsh.Cmdlet
 
         protected override void ProcessRecord()
         {
-            ConnectionInfo info = new SshConnection(Server, Port, User, Password, KeyboardInteractive).GetConnectionInfo();
+            //ConnectionInfo info = new SshConnection(Server, Port, User, Password, KeyboardInteractive).GetConnectionInfo();
+            ConnectionInfo info = SshConnection.GetConnectionInfo(Server, Port, User, Password, KeyboardInteractive);
 
             try
             {

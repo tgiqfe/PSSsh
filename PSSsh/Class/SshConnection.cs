@@ -11,16 +11,14 @@ namespace PSSsh
 {
     internal class SshConnection
     {
+        /*
         public string Server { get; set; }
         public int Port { get; set; } = Item.DEFAULT_PORT;
         public string User { get; set; }
         public string Password { get; set; }
         public bool KeyboardInteractive { get; set; }
 
-        public ConnectionInfo Connection { get; set; }
-
         public SshConnection() { }
-
         public SshConnection(string server, int port, string user, string password, bool keyboardInteractive)
         {
             if (server.Contains(":"))
@@ -57,7 +55,7 @@ namespace PSSsh
                         }
                         if (prompt.Request.StartsWith("Verification code:", StringComparison.OrdinalIgnoreCase))
                         {
-                            /* ワンタイムパスワード用 (ごめん未実装) */
+                            // ワンタイムパスワード用 (ごめん未実装)
                         }
                     }
                 });
@@ -70,6 +68,47 @@ namespace PSSsh
                    Port,
                    User,
                    new AuthenticationMethod[] { new PasswordAuthenticationMethod(User, Password) });
+            }
+        }
+        */
+
+        /// <summary>
+        /// ConnectionInfoを取得する為の静的メソッド
+        /// </summary>
+        /// <param name="server"></param>
+        /// <param name="port"></param>
+        /// <param name="user"></param>
+        /// <param name="password"></param>
+        /// <param name="keyboardInteractive"></param>
+        /// <returns></returns>
+        public static ConnectionInfo GetConnectionInfo(string server, int port, string user, string password, bool keyboardInteractive)
+        {
+            if (keyboardInteractive)
+            {
+                KeyboardInteractiveAuthenticationMethod keyAuth = new KeyboardInteractiveAuthenticationMethod(user);
+                keyAuth.AuthenticationPrompt += new EventHandler<AuthenticationPromptEventArgs>((sender, e) =>
+                {
+                    foreach (AuthenticationPrompt prompt in e.Prompts)
+                    {
+                        if (prompt.Request.StartsWith("Password:", StringComparison.OrdinalIgnoreCase))
+                        {
+                            prompt.Response = password;
+                        }
+                        if (prompt.Request.StartsWith("Verification code:", StringComparison.OrdinalIgnoreCase))
+                        {
+                            /* ワンタイムパスワード用 (ごめん未実装) */
+                        }
+                    }
+                });
+                return new ConnectionInfo(server, port, user, keyAuth);
+            }
+            else
+            {
+                return new ConnectionInfo(
+                   server,
+                   port,
+                   user,
+                   new AuthenticationMethod[] { new PasswordAuthenticationMethod(user, password) });
             }
         }
     }
