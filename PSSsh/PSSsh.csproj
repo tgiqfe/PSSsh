@@ -70,9 +70,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
-    <None Include="Script\パスワード登録\パスワード複合.ps1" />
-    <None Include="Script\パスワード登録\パスワード登録.ps1" />
-    <None Include="Script\パスワード登録\パスワード登録.bat" />
+    <None Include="Script\PWSample\FromSecureString.ps1" />
+    <None Include="Script\PWSample\ToSecreString.ps1" />
+    <None Include="Script\PWSample\ToSecureString.bat" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Help\PSSsh.dll-Help.xml" />
