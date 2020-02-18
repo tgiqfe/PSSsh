@@ -13,7 +13,7 @@ using System.Collections.ObjectModel;
 namespace PSSsh.Cmdlet
 {
     /// <summary>
-    /// 対象のSSHサーバからSFTPを使用してファイルをダウンロード
+    /// 対象のSSHサーバにSFTPを使用してファイルをダウンロード
     /// </summary>
     [Cmdlet(VerbsLifecycle.Invoke, "SftpDownload")]
     public class InvokeSftpDownload : PSCmdlet
@@ -22,7 +22,6 @@ namespace PSSsh.Cmdlet
         public string Server { get; set; }
         [Parameter]
         public int Port { get; set; } = Item.DEFAULT_PORT;
-        [Parameter(Mandatory = true, Position = 1)]
         [Parameter(Position = 1)]
         public string User { get; set; }
         [Parameter(Position = 2)]
@@ -88,7 +87,7 @@ namespace PSSsh.Cmdlet
                     }
                 }
                 using (SftpClient sftp = new SftpClient(info))
-                using(FileStream fs =File.OpenWrite(LocalPath))
+                using (FileStream fs = File.OpenWrite(LocalPath))
                 {
                     sftp.ConnectionInfo.Timeout = TimeSpan.FromSeconds(Item.CONNECT_TIMEOUT_SECOND);
                     sftp.Connect();

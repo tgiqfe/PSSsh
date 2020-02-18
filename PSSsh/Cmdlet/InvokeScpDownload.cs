@@ -22,7 +22,6 @@ namespace PSSsh.Cmdlet
         public string Server { get; set; }
         [Parameter]
         public int Port { get; set; } = Item.DEFAULT_PORT;
-        [Parameter(Mandatory = true, Position = 1)]
         [Parameter(Position = 1)]
         public string User { get; set; }
         [Parameter(Position = 2)]
