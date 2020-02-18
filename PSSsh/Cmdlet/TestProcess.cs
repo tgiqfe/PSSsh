@@ -27,14 +27,7 @@ namespace PSSsh.Cmdlet
         protected override void ProcessRecord()
         {
 
-            //  ↓ProcessRecordの中からPowerShellコマンドレットを実行
-            var propDefault = InvokeCommand.InvokeScript(SessionState,
-                InvokeCommand.NewScriptBlock("Get-ChildItem"));
 
-            foreach (var prop in propDefault)
-            {
-                Console.WriteLine(prop);
-            }
         }
     }
 }

@@ -93,7 +93,6 @@ namespace PSSsh.Cmdlet
                     }
                 }
 
-
                 foreach (string removeItem in removeItems)
                 {
                     if (File.Exists(removeItem))
