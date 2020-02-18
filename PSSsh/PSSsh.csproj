@@ -57,6 +57,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Class\LogNotNullAttribute.cs" />
+    <Compile Include="Cmdlet\InvokeSftpUpload.cs" />
+    <Compile Include="Cmdlet\InvokeSftpDownload.cs" />
     <Compile Include="Cmdlet\InvokeScpDownload.cs" />
     <Compile Include="Cmdlet\InvokeScpUpload.cs" />
     <Compile Include="Cmdlet\InvokeSshCommand.cs" />
