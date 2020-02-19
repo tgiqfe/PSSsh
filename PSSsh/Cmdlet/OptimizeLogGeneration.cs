@@ -27,8 +27,10 @@ namespace PSSsh.Cmdlet
         [Parameter, ValidateSet(BASE_NAME, BASE_DATE)]
         public string Base { get; set; } = BASE_NAME;
         [Parameter]
+        [LogNotNull]
         public int RetentionCount { get; set; }
         [Parameter]
+        [LogNotNull]
         public int RetentionDays { get; set; }
         [Parameter]
         [LogNotNull]
