@@ -37,6 +37,9 @@ namespace PSSsh.Cmdlet
         public PSCredential Credential { get; set; }
         [Parameter]
         public SwitchParameter KeyboardInteractive { get; set; }
+        [Parameter]
+        [LogNotNull]
+        public SwitchParameter DebugMode { get; set; }
 
         [Parameter(Mandatory = true)]
         public string[] Command { get; set; }
@@ -68,7 +71,7 @@ namespace PSSsh.Cmdlet
                 }
             }
 
-            bool debugMode = false;
+            bool debugMode = DebugMode;
 #if DEBUG
             debugMode = true;
 #endif

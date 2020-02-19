@@ -38,6 +38,9 @@ namespace PSSsh.Cmdlet
         [Parameter]
         [LogIgnore]
         public SwitchParameter Dryrun { get; set; }
+        [Parameter]
+        [LogNotNull]
+        public SwitchParameter DebugMode { get; set; }
 
         protected override void BeginProcessing()
         {
@@ -47,7 +50,7 @@ namespace PSSsh.Cmdlet
 
             if (RetentionCount < 0) { RetentionCount = 0; }
 
-            bool debugMode = false;
+            bool debugMode = DebugMode;
 #if DEBUG
             debugMode = true;
 #endif
