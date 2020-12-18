@@ -96,9 +96,13 @@ namespace PSSsh.Cmdlet
                         SshCommand command = ssh.CreateCommand(cmd);
                         command.Execute();
 
+                        List<string> splitResult = System.Text.RegularExpressions.Regex.Split(command.Result, @"\r?\n").ToList();
+                        splitResult.RemoveAt(0);
+                        splitResult.RemoveAt(splitResult.Count - 1);
+
                         if (string.IsNullOrEmpty(Output))
                         {
-                            WriteObject(command.Result, true);
+                            WriteObject(string.Join("\r\n", splitResult), true);
                         }
                         else
                         {
@@ -111,7 +115,7 @@ namespace PSSsh.Cmdlet
                             }
                             using (StreamWriter sw = new StreamWriter(Output, true, Encoding.GetEncoding("Shift_JIS")))
                             {
-                                sw.Write(command.Result);
+                                sw.Write(string.Join("\r", splitResult));
                             }
                         }
                     }
