@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace PSSsh.Lib
 {
-    internal class SshSession
+    internal class SshSession : IDisposable
     {
         #region SSH Connect parameter
 
@@ -41,8 +41,17 @@ namespace PSSsh.Lib
 
         #endregion
 
+        private SshClient _ssh = null;
+        private ScpClient _scp = null;
+        private SftpClient _sftp = null;
+
+        const int _timeout = 10;
+
         private bool _isOpen = false;
         ConnectionInfo _connectionInfo = null;
+
+
+        
 
         public void Open()
         {
@@ -82,24 +91,83 @@ namespace PSSsh.Lib
             }
         }
 
-        public SshClient CreateSshClient()
+        #region Create client
+
+        /// <summary>
+        /// SSH接続用クライアントを取得
+        /// </summary>
+        /// <returns></returns>
+        public SshClient CreateAndConnectSshClient()
         {
-            Open();
-            return new SshClient(_connectionInfo);
+            this._ssh ??= CreateAndConnectClient<SshClient>();
+            return _ssh;
         }
 
-        public ScpClient CreateScpClient()
+        /// <summary>
+        /// SCP接続用クライアントを取得
+        /// </summary>
+        /// <returns></returns>
+        public ScpClient CreateAndConnectScpClient()
         {
-            Open();
-            return new ScpClient(_connectionInfo);
+            this._scp ??= CreateAndConnectClient<ScpClient>();
+            return _scp;
         }
 
-        public SftpClient CreateSftpClient()
+        /// <summary>
+        /// SFTP接続用クライアントを取得
+        /// </summary>
+        /// <returns></returns>
+        public SftpClient CreateAndConnectSftpClient()
         {
-            Open();
-            return new SftpClient(_connectionInfo);
+            this._sftp ??= CreateAndConnectClient<SftpClient>();
+            return _sftp;
         }
 
+        private T CreateAndConnectClient<T>() where T : BaseClient
+        {
+            Open();
+            T client = (T)typeof(T).GetConstructor(new Type[] { typeof(ConnectionInfo) }).Invoke(new object[1] { _connectionInfo });
+            client.ConnectionInfo.Timeout = TimeSpan.FromSeconds(_timeout); ;
+            client.Connect();
+            return client;
+        }
 
+        #endregion
+
+        ~SshSession()
+        {
+            Close();
+        }
+
+        public void Close()
+        {
+            if (_ssh != null) _ssh.Dispose();
+            if (_scp != null) _scp.Dispose();
+            if (_sftp != null) _sftp.Dispose();
+        }
+
+        #region Dispose
+
+        private bool disposedValue;
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!disposedValue)
+            {
+                if (disposing)
+                {
+                    Close();
+                }
+                disposedValue = true;
+            }
+        }
+
+        public void Dispose()
+        {
+            Dispose(disposing: true);
+            GC.SuppressFinalize(this);
+        }
+
+        #endregion
     }
 }

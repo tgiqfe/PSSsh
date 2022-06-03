@@ -72,57 +72,88 @@ namespace PSSsh.Cmdlet
                 this.Command = pattern_return.Split(text);
             }
 
-            this.Session ??= new SshSession()
+            if (this.Session == null)
             {
-                Server = this.Server,
-                Port = this.Port,
-                User = this.User,
-                Password = this.Password,
-                KeyboardInteractive = this.KeyboardInteractive,
-            };
-
-
-
-
-
-            
-
-
-            var info = new ServerInfo(this.Server, defaultPort: this.Port ?? 22, defaultProtocol: "ssh");
-            var connectionInfo = GetConnectionInfo(info.Server, info.Port, this.User, this.Password, KeyboardInteractive);
-            try
-            {
-                using (var client = new SshClient(connectionInfo))
+                //  セッション引継ぎ無し
+                try
                 {
-                    client.ConnectionInfo.Timeout = TimeSpan.FromSeconds(CONNECT_TIMEOUT);
-                    client.Connect();
-
-                    foreach (string line in Command)
+                    Session = new SshSession()
                     {
-                        SshCommand command = client.CreateCommand(line);
-                        command.Execute();
-
-                        List<string> splitResult = pattern_return.Split(command.Result).ToList();
-                        splitResult.RemoveAt(0);
-                        splitResult.RemoveAt(splitResult.Count - 1);
-                        if (string.IsNullOrEmpty(this.OutputFile))
+                        Server = this.Server,
+                        Port = this.Port,
+                        User = this.User,
+                        Password = this.Password,
+                        KeyboardInteractive = this.KeyboardInteractive,
+                    };
+                    using (var client = Session.CreateAndConnectSshClient())
+                    {
+                        if (client.IsConnected)
                         {
-                            WriteObject(string.Join("\r\n", splitResult), true);
-                        }
-                        else
-                        {
-                            TargetDirectory.CreateParent(this.OutputFile);
-                            using (var sw = new StreamWriter(OutputFile, true, new UTF8Encoding(false)))
+                            foreach (string line in Command)
                             {
-                                sw.Write(string.Join("\r\n", splitResult));
+                                SshCommand command = client.CreateCommand(line);
+                                command.Execute();
+
+                                List<string> splitResult = pattern_return.Split(command.Result).ToList();
+                                splitResult.RemoveAt(0);
+                                splitResult.RemoveAt(splitResult.Count - 1);
+                                if (string.IsNullOrEmpty(this.OutputFile))
+                                {
+                                    WriteObject(string.Join("\r\n", splitResult), true);
+                                }
+                                else
+                                {
+                                    TargetDirectory.CreateParent(this.OutputFile);
+                                    using (var sw = new StreamWriter(OutputFile, true, new UTF8Encoding(false)))
+                                    {
+                                        sw.Write(string.Join("\r\n", splitResult));
+                                    }
+                                }
                             }
                         }
                     }
                 }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
+                }
             }
-            catch (Exception e)
+            else
             {
-                Console.WriteLine(e);
+                //  セッション引継ぎ有り
+                try
+                {
+                    var client = Session.CreateAndConnectSshClient();
+
+                    if (client.IsConnected)
+                    {
+                        foreach (string line in Command)
+                        {
+                            SshCommand command = client.CreateCommand(line);
+                            command.Execute();
+
+                            List<string> splitResult = pattern_return.Split(command.Result).ToList();
+                            splitResult.RemoveAt(0);
+                            splitResult.RemoveAt(splitResult.Count - 1);
+                            if (string.IsNullOrEmpty(this.OutputFile))
+                            {
+                                WriteObject(string.Join("\r\n", splitResult), true);
+                            }
+                            else
+                            {
+                                TargetDirectory.CreateParent(this.OutputFile);
+                                using (var sw = new StreamWriter(OutputFile, true, new UTF8Encoding(false)))
+                                {
+                                    sw.Write(string.Join("\r\n", splitResult));
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
+                }
             }
         }
     }
