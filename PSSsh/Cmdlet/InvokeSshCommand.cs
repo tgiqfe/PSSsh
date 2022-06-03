@@ -45,8 +45,8 @@ namespace PSSsh.Cmdlet
         [Parameter]
         public string CommandFile { get; set; }
 
-        [Parameter]
-        public string Output { get; set; }
+        [Parameter, Alias("Output")]
+        public string OutputFile { get; set; }
 
         #endregion
 
@@ -86,14 +86,14 @@ namespace PSSsh.Cmdlet
                         List<string> splitResult = pattern_return.Split(command.Result).ToList();
                         splitResult.RemoveAt(0);
                         splitResult.RemoveAt(splitResult.Count - 1);
-                        if (string.IsNullOrEmpty(this.Output))
+                        if (string.IsNullOrEmpty(this.OutputFile))
                         {
                             WriteObject(string.Join("\r\n", splitResult), true);
                         }
                         else
                         {
-                            TargetDirectory.CreateParent(this.Output);
-                            using (var sw = new StreamWriter(Output, true, new UTF8Encoding(false)))
+                            TargetDirectory.CreateParent(this.OutputFile);
+                            using (var sw = new StreamWriter(OutputFile, true, new UTF8Encoding(false)))
                             {
                                 sw.Write(string.Join("\r\n", splitResult));
                             }
