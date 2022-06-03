@@ -9,6 +9,9 @@ using Renci.SshNet;
 
 namespace PSSsh.Cmdlet
 {
+    /// <summary>
+    /// SFTPアップロード用コマンドレット
+    /// </summary>
     [Cmdlet(VerbsLifecycle.Invoke, "SftpUpload")]
     internal class InvokeSftpUpload : PSCmdletExtension
     {

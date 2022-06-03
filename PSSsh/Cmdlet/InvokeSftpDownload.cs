@@ -9,6 +9,9 @@ using Renci.SshNet;
 
 namespace PSSsh.Cmdlet
 {
+    /// <summary>
+    /// SFTPダウンロード用コマンドレット
+    /// </summary>
     [Cmdlet(VerbsLifecycle.Invoke, "SftpDownload")]
     internal class InvokeSftpDownload : PSCmdletExtension
     {
@@ -57,11 +60,7 @@ namespace PSSsh.Cmdlet
             var connectionInfo = GetConnectionInfo(info.Server, info.Port, this.User, this.Password, KeyboardInteractive);
             try
             {
-                string parent = Path.GetDirectoryName(this.LocalPath);
-                if (!Directory.Exists(parent))
-                {
-                    Directory.CreateDirectory(parent);
-                }
+                TargetDirectory.CreateParent(this.LocalPath);
                 using (var client = new SftpClient(connectionInfo))
                 using (var fs = File.OpenWrite(LocalPath))
                 {

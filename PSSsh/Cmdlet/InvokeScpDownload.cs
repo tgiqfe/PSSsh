@@ -61,11 +61,7 @@ namespace PSSsh.Cmdlet
             var connectionInfo = GetConnectionInfo(info.Server, info.Port, this.User, this.Password, KeyboardInteractive);
             try
             {
-                string parent = Path.GetDirectoryName(this.LocalPath);
-                if (!Directory.Exists(parent))
-                {
-                    Directory.CreateDirectory(parent);
-                }
+                TargetDirectory.CreateParent(this.LocalPath);
                 using (var client = new ScpClient(connectionInfo))
                 {
                     client.RemotePathTransformation = RemotePathTransformation.ShellQuote;

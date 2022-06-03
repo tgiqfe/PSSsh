@@ -10,6 +10,9 @@ using Renci.SshNet;
 
 namespace PSSsh.Cmdlet
 {
+    /// <summary>
+    /// SCPアップロード用コマンドレット
+    /// </summary>
     [Cmdlet(VerbsLifecycle.Invoke, "ScpUpload")]
     internal class InvokeScpUpload : PSCmdletExtension
     {
