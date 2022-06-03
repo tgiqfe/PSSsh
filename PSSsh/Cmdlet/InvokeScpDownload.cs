@@ -10,6 +10,9 @@ using Renci.SshNet;
 
 namespace PSSsh.Cmdlet
 {
+    /// <summary>
+    /// Scpダウンロード用コマンドレット
+    /// </summary>
     [Cmdlet(VerbsLifecycle.Invoke, "ScpDownload")]
     internal class InvokeScpDownload : PSCmdletExtension
     {
