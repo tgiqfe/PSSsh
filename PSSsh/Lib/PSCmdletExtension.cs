@@ -64,6 +64,7 @@ namespace PSSsh.Lib
             return password;
         }
 
+        //  ↓削除予定メソッド (移行済み)
         protected ConnectionInfo GetConnectionInfo(string server, int port, string user, string password, bool keyboardInteractive)
         {
             if (keyboardInteractive)

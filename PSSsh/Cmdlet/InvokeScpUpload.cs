@@ -39,6 +39,9 @@ namespace PSSsh.Cmdlet
         [Parameter]
         public SwitchParameter KeyboardInteractive { get; set; }
 
+        [Parameter]
+        public SshSession Session { get; set; }
+
         [Parameter(Mandatory = true)]
         public string RemotePath { get; set; }
 
@@ -57,23 +60,20 @@ namespace PSSsh.Cmdlet
 
         protected override void ProcessRecord()
         {
-            var info = new ServerInfo(this.Server, defaultPort: this.Port ?? 22, defaultProtocol: "ssh");
-            var connectionInfo = GetConnectionInfo(info.Server, info.Port, this.User, this.Password, KeyboardInteractive);
-            try
+            this.Session ??= new SshSession()
             {
-                //  [案]動作確認中
-                using (var client = new ScpClient(connectionInfo))
-                {
-                    client.RemotePathTransformation = RemotePathTransformation.ShellQuote;
-                    client.ConnectionInfo.Timeout = TimeSpan.FromSeconds(CONNECT_TIMEOUT);
-                    client.Connect();
-                    client.Upload(new FileInfo(LocalPath), RemotePath);
-                }
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e);
-            }
+                Server = this.Server,
+                Port = this.Port,
+                User = this.User,
+                Password = this.Password,
+                KeyboardInteractive = this.KeyboardInteractive,
+                Effemeral = true,
+            };
+
+            var client = Session.CreateAndConnectScpClient();
+            client.RemotePathTransformation = RemotePathTransformation.ShellQuote;
+            client.Upload(new FileInfo(LocalPath), RemotePath);
+            Session.CloseIfEffemeral();
         }
     }
 }

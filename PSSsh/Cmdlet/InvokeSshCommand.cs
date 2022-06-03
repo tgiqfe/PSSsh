@@ -40,13 +40,16 @@ namespace PSSsh.Cmdlet
         public SwitchParameter KeyboardInteractive { get; set; }
 
         [Parameter]
+        public SshSession Session { get; set; }
+
+        [Parameter]
         public string[] Command { get; set; }
 
         [Parameter]
         public string CommandFile { get; set; }
 
-        [Parameter]
-        public string Output { get; set; }
+        [Parameter, Alias("Output")]
+        public string OutputFile { get; set; }
 
         #endregion
 
@@ -69,42 +72,43 @@ namespace PSSsh.Cmdlet
                 this.Command = pattern_return.Split(text);
             }
 
-            var info = new ServerInfo(this.Server, defaultPort: this.Port ?? 22, defaultProtocol: "ssh");
-            var connectionInfo = GetConnectionInfo(info.Server, info.Port, this.User, this.Password, KeyboardInteractive);
-            try
+            this.Session ??= new SshSession()
             {
-                using (var client = new SshClient(connectionInfo))
+                Server = this.Server,
+                Port = this.Port,
+                User = this.User,
+                Password = this.Password,
+                KeyboardInteractive = this.KeyboardInteractive,
+                Effemeral = true,   //  コマンドパラメータでSession指定が無い場合、Effemeral。
+            };
+
+            var client = Session.CreateAndConnectSshClient();
+            if (client.IsConnected)
+            {
+                foreach (string line in Command)
                 {
-                    client.ConnectionInfo.Timeout = TimeSpan.FromSeconds(CONNECT_TIMEOUT);
-                    client.Connect();
+                    SshCommand command = client.CreateCommand(line);
+                    command.Execute();
 
-                    foreach (string line in Command)
+                    List<string> splitResult = pattern_return.Split(command.Result).ToList();
+                    splitResult.RemoveAt(0);
+                    splitResult.RemoveAt(splitResult.Count - 1);
+                    if (string.IsNullOrEmpty(this.OutputFile))
                     {
-                        SshCommand command = client.CreateCommand(line);
-                        command.Execute();
-
-                        List<string> splitResult = pattern_return.Split(command.Result).ToList();
-                        splitResult.RemoveAt(0);
-                        splitResult.RemoveAt(splitResult.Count - 1);
-                        if (string.IsNullOrEmpty(this.Output))
+                        WriteObject(string.Join("\r\n", splitResult), true);
+                    }
+                    else
+                    {
+                        TargetDirectory.CreateParent(this.OutputFile);
+                        using (var sw = new StreamWriter(OutputFile, true, new UTF8Encoding(false)))
                         {
-                            WriteObject(string.Join("\r\n", splitResult), true);
-                        }
-                        else
-                        {
-                            TargetDirectory.CreateParent(this.Output);
-                            using (var sw = new StreamWriter(Output, true, new UTF8Encoding(false)))
-                            {
-                                sw.Write(string.Join("\r\n", splitResult));
-                            }
+                            sw.Write(string.Join("\r\n", splitResult));
                         }
                     }
                 }
             }
-            catch (Exception e)
-            {
-                Console.WriteLine(e);
-            }
+
+            Session.CloseIfEffemeral();
         }
     }
 }
