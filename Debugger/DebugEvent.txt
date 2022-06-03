@@ -1,7 +1,0 @@
-# Debug
-C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
--ExecutionPolicy Unrestricted -NoExit -Command "Import-Module ..\..\..\PSSsh\bin\Debug\PSSsh.dll"
-
-# Release
-C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
--ExecutionPolicy Unrestricted -NoExit -Command "Import-Module ..\..\..\PSSsh\bin\Release\PSSsh.dll"

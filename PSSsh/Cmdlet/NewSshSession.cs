@@ -7,8 +7,8 @@ using System.Management.Automation;
 
 namespace PSSsh.Cmdlet
 {
-    [Cmdlet(VerbsLifecycle.Invoke, "SshCommand")]
-    internal class InvokeSshCommand
+    [Cmdlet(VerbsCommon.New, "SshSession")]
+    internal class NewSshSession : PSCmdlet
     {
     }
 }
