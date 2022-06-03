@@ -14,7 +14,7 @@ namespace PSSsh.Lib
         /// <summary>
         /// SSH接続時のサーバ接続までのタイムアウト値(秒)
         /// </summary>
-        protected int _connectTimeoutSec = 10;
+        protected const int CONNECT_TIMEOUT = 10;
 
         #region Change CurrentDirectory
 

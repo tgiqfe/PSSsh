@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using System.Management.Automation;
 using PSSsh.Lib;
 using System.Runtime.InteropServices;
-using System.Collections.ObjectModel;
 using System.IO;
 using Renci.SshNet;
 
@@ -81,7 +80,7 @@ namespace PSSsh.Cmdlet
                 {
                     Directory.CreateDirectory(parent);
                 }
-                using (ScpClient client = new ScpClient(connectionInfo))
+                using (var client = new ScpClient(connectionInfo))
                 {
                     client.RemotePathTransformation = RemotePathTransformation.ShellQuote;
                     client.ConnectionInfo.Timeout = TimeSpan.FromSeconds(Item.CONNECT_TIMEOUT_SECOND);
