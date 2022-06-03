@@ -34,7 +34,7 @@ namespace PSSsh.Lib
         }
         public string Password
         {
-            get { return _password; }
+            get { return "********"; }          //  パスワードを表示させない
             set { if (!string.IsNullOrEmpty(value)) _password = value; }
         }
         public bool KeyboardInteractive { get; set; }
@@ -48,8 +48,8 @@ namespace PSSsh.Lib
         {
             if (_isOpen) { return; }
 
-            var info = new ServerInfo(this.Server, defaultPort: this.Port ?? 22, defaultProtocol: "ssh");
-            _connectionInfo = getConnectionInfo(info.Server, info.Port, this.User, this.Password, KeyboardInteractive);
+            var info = new ServerInfo(_server, defaultPort: _port ?? 22, defaultProtocol: "ssh");
+            _connectionInfo = getConnectionInfo(info.Server, info.Port, _user, _password, KeyboardInteractive);
             _isOpen = true;
 
             ConnectionInfo getConnectionInfo(string server, int port, string user, string password, bool keyboardInteractive)
@@ -84,21 +84,22 @@ namespace PSSsh.Lib
 
         public SshClient CreateSshClient()
         {
-            if (!_isOpen)
-            {
-                Open();
-            }
+            Open();
             return new SshClient(_connectionInfo);
         }
 
         public ScpClient CreateScpClient()
         {
+            Open();
             return new ScpClient(_connectionInfo);
         }
 
         public SftpClient CreateSftpClient()
         {
+            Open();
             return new SftpClient(_connectionInfo);
         }
+
+
     }
 }

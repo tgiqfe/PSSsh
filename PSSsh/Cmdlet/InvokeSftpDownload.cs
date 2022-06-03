@@ -38,6 +38,9 @@ namespace PSSsh.Cmdlet
         [Parameter]
         public SwitchParameter KeyboardInteractive { get; set; }
 
+        [Parameter]
+        public SshSession Session { get; set; }
+
         [Parameter(Mandatory = true)]
         public string RemotePath { get; set; }
 

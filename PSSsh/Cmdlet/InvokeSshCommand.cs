@@ -40,6 +40,9 @@ namespace PSSsh.Cmdlet
         public SwitchParameter KeyboardInteractive { get; set; }
 
         [Parameter]
+        public SshSession Session { get; set; }
+
+        [Parameter]
         public string[] Command { get; set; }
 
         [Parameter]
@@ -68,6 +71,22 @@ namespace PSSsh.Cmdlet
                 string text = File.ReadAllText(this.CommandFile);
                 this.Command = pattern_return.Split(text);
             }
+
+            this.Session ??= new SshSession()
+            {
+                Server = this.Server,
+                Port = this.Port,
+                User = this.User,
+                Password = this.Password,
+                KeyboardInteractive = this.KeyboardInteractive,
+            };
+
+
+
+
+
+            
+
 
             var info = new ServerInfo(this.Server, defaultPort: this.Port ?? 22, defaultProtocol: "ssh");
             var connectionInfo = GetConnectionInfo(info.Server, info.Port, this.User, this.Password, KeyboardInteractive);
