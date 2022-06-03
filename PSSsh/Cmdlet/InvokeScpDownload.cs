@@ -60,28 +60,20 @@ namespace PSSsh.Cmdlet
 
         protected override void ProcessRecord()
         {
-
-
-
-            var info = new ServerInfo(this.Server, defaultPort: this.Port ?? 22, defaultProtocol: "ssh");
-            var connectionInfo = GetConnectionInfo(info.Server, info.Port, this.User, this.Password, KeyboardInteractive);
-            try
+            this.Session ??= new SshSession()
             {
-                TargetDirectory.CreateParent(this.LocalPath);
-                using (var client = new ScpClient(connectionInfo))
-                {
-                    client.RemotePathTransformation = RemotePathTransformation.ShellQuote;
-                    client.ConnectionInfo.Timeout = TimeSpan.FromSeconds(CONNECT_TIMEOUT);
-                    client.Connect();
-                    client.Download(RemotePath, new FileInfo(LocalPath));
-                }
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e);
-            }
+                Server = this.Server,
+                Port = this.Port,
+                User = this.User,
+                Password = this.Password,
+                KeyboardInteractive = this.KeyboardInteractive,
+                Effemeral = true,
+            };
+
+            var client = Session.CreateAndConnectScpClient();
+            client.RemotePathTransformation = RemotePathTransformation.ShellQuote;
+            client.Download(RemotePath, new FileInfo(LocalPath));
+            Session.CloseIfEffemeral();
         }
-
-
     }
 }

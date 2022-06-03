@@ -59,23 +59,22 @@ namespace PSSsh.Cmdlet
 
         protected override void ProcessRecord()
         {
-            var info = new ServerInfo(this.Server, defaultPort: this.Port ?? 22, defaultProtocol: "ssh");
-            var connectionInfo = GetConnectionInfo(info.Server, info.Port, this.User, this.Password, KeyboardInteractive);
-            try
+            this.Session ??= new SshSession()
             {
-                TargetDirectory.CreateParent(this.LocalPath);
-                using (var client = new SftpClient(connectionInfo))
-                using (var fs = File.OpenWrite(LocalPath))
-                {
-                    client.ConnectionInfo.Timeout = TimeSpan.FromSeconds(CONNECT_TIMEOUT);
-                    client.Connect();
-                    client.DownloadFile(RemotePath, fs);
-                }
-            }
-            catch (Exception e)
+                Server = this.Server,
+                Port = this.Port,
+                User = this.User,
+                Password = this.Password,
+                KeyboardInteractive = this.KeyboardInteractive,
+                Effemeral = true,
+            };
+
+            var client = Session.CreateAndConnectSftpClient();
+            using(var fs = File.OpenWrite(LocalPath))
             {
-                Console.WriteLine(e);
+                client.DownloadFile(RemotePath, fs);
             }
+            Session.CloseIfEffemeral();
         }
     }
 }
