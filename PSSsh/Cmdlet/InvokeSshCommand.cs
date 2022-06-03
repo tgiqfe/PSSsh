@@ -72,89 +72,47 @@ namespace PSSsh.Cmdlet
                 this.Command = pattern_return.Split(text);
             }
 
+            bool needDispose = false;
+
             if (this.Session == null)
             {
-                //  セッション引継ぎ無し
-                try
+                Session = new SshSession()
                 {
-                    Session = new SshSession()
-                    {
-                        Server = this.Server,
-                        Port = this.Port,
-                        User = this.User,
-                        Password = this.Password,
-                        KeyboardInteractive = this.KeyboardInteractive,
-                    };
-                    using (var client = Session.CreateAndConnectSshClient())
-                    {
-                        if (client.IsConnected)
-                        {
-                            foreach (string line in Command)
-                            {
-                                SshCommand command = client.CreateCommand(line);
-                                command.Execute();
-
-                                List<string> splitResult = pattern_return.Split(command.Result).ToList();
-                                splitResult.RemoveAt(0);
-                                splitResult.RemoveAt(splitResult.Count - 1);
-                                if (string.IsNullOrEmpty(this.OutputFile))
-                                {
-                                    WriteObject(string.Join("\r\n", splitResult), true);
-                                }
-                                else
-                                {
-                                    TargetDirectory.CreateParent(this.OutputFile);
-                                    using (var sw = new StreamWriter(OutputFile, true, new UTF8Encoding(false)))
-                                    {
-                                        sw.Write(string.Join("\r\n", splitResult));
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine(e);
-                }
+                    Server = this.Server,
+                    Port = this.Port,
+                    User = this.User,
+                    Password = this.Password,
+                    KeyboardInteractive = this.KeyboardInteractive,
+                };
+                needDispose = true;
             }
-            else
+
+            var client = Session.CreateAndConnectSshClient();
+            if (client.IsConnected)
             {
-                //  セッション引継ぎ有り
-                try
+                foreach (string line in Command)
                 {
-                    var client = Session.CreateAndConnectSshClient();
+                    SshCommand command = client.CreateCommand(line);
+                    command.Execute();
 
-                    if (client.IsConnected)
+                    List<string> splitResult = pattern_return.Split(command.Result).ToList();
+                    splitResult.RemoveAt(0);
+                    splitResult.RemoveAt(splitResult.Count - 1);
+                    if (string.IsNullOrEmpty(this.OutputFile))
                     {
-                        foreach (string line in Command)
+                        WriteObject(string.Join("\r\n", splitResult), true);
+                    }
+                    else
+                    {
+                        TargetDirectory.CreateParent(this.OutputFile);
+                        using (var sw = new StreamWriter(OutputFile, true, new UTF8Encoding(false)))
                         {
-                            SshCommand command = client.CreateCommand(line);
-                            command.Execute();
-
-                            List<string> splitResult = pattern_return.Split(command.Result).ToList();
-                            splitResult.RemoveAt(0);
-                            splitResult.RemoveAt(splitResult.Count - 1);
-                            if (string.IsNullOrEmpty(this.OutputFile))
-                            {
-                                WriteObject(string.Join("\r\n", splitResult), true);
-                            }
-                            else
-                            {
-                                TargetDirectory.CreateParent(this.OutputFile);
-                                using (var sw = new StreamWriter(OutputFile, true, new UTF8Encoding(false)))
-                                {
-                                    sw.Write(string.Join("\r\n", splitResult));
-                                }
-                            }
+                            sw.Write(string.Join("\r\n", splitResult));
                         }
                     }
                 }
-                catch (Exception e)
-                {
-                    Console.WriteLine(e);
-                }
             }
+            if (needDispose) client.Dispose();
         }
     }
 }
