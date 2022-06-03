@@ -5,7 +5,6 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Management.Automation;
 using PSSsh.Lib;
-using System.Runtime.InteropServices;
 using System.IO;
 using Renci.SshNet;
 
@@ -49,24 +48,8 @@ namespace PSSsh.Cmdlet
         {
             base.BeginProcessing();
 
-            if (Credential != null)
-            {
-                this.User = Credential.UserName;
-                this.Password = Marshal.PtrToStringUni(Marshal.SecureStringToGlobalAllocUnicode(Credential.Password));
-            }
-            else if (!string.IsNullOrEmpty(this.PasswordFile) && File.Exists(this.PasswordFile))
-            {
-                var res = InvokeCommand.InvokeScript(
-                    SessionState,
-                    InvokeCommand.NewScriptBlock(
-                        "[System.Runtime.InteropServices.Marshal]::PtrToStringBSTR(" +
-                        "[System.Runtime.InteropServices.Marshal]::SecureStringToBSTR(" +
-                        $"(Get-Content \"{PasswordFile}\" | ConvertTo-SecureString)))"));
-                if (res != null && res.Count > 0)
-                {
-                    this.Password = res[0].ToString();
-                }
-            }
+            this.User = GetUserName(this.User, this.Credential);
+            this.Password = GetPassword(this.Password, this.Credential, this.PasswordFile);
         }
 
         protected override void ProcessRecord()
@@ -83,7 +66,7 @@ namespace PSSsh.Cmdlet
                 using (var client = new ScpClient(connectionInfo))
                 {
                     client.RemotePathTransformation = RemotePathTransformation.ShellQuote;
-                    client.ConnectionInfo.Timeout = TimeSpan.FromSeconds(Item.CONNECT_TIMEOUT_SECOND);
+                    client.ConnectionInfo.Timeout = TimeSpan.FromSeconds(CONNECT_TIMEOUT);
                     client.Connect();
                     client.Download(RemotePath, new FileInfo(LocalPath));
                 }

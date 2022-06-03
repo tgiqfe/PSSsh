@@ -35,6 +35,35 @@ namespace PSSsh.Lib
 
         #endregion
 
+        protected string GetUserName(string user, PSCredential credential)
+        {
+            if (credential != null)
+            {
+                return credential.UserName;
+            }
+            return user;
+        }
+
+        protected string GetPassword(string password, PSCredential credential, string passwordFile)
+        {
+            if (credential != null)
+            {
+                return System.Runtime.InteropServices.Marshal.PtrToStringUni(
+                    System.Runtime.InteropServices.Marshal.SecureStringToGlobalAllocUnicode(credential.Password));
+            }
+            else if (!string.IsNullOrEmpty(passwordFile) && File.Exists(passwordFile))
+            {
+                var res = InvokeCommand.InvokeScript(
+                    SessionState,
+                    InvokeCommand.NewScriptBlock(
+                        "[System.Runtime.InteropServices.Marshal]::PtrToStringBSTR(" +
+                        "[System.Runtime.InteropServices.Marshal]::SecureStringToBSTR(" +
+                        $"(Get-Content \"{passwordFile}\" | ConvertTo-SecureString)))"));
+                if (res != null && res.Count > 0) return res[0].ToString();
+            }
+            return password;
+        }
+
         protected ConnectionInfo GetConnectionInfo(string server, int port, string user, string password, bool keyboardInteractive)
         {
             if (keyboardInteractive)
