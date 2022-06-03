@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace PSSsh
+namespace PSSsh.Logs
 {
-    internal class Item
+    internal class LogBodyBase
     {
     }
 }

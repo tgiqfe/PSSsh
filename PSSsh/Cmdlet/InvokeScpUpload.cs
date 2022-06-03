@@ -4,108 +4,76 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Management.Automation;
-using Renci.SshNet;
-using Renci.SshNet.Common;
+using PSSsh.Lib;
 using System.IO;
-using System.Runtime.InteropServices;
-using System.Collections.ObjectModel;
+using Renci.SshNet;
 
 namespace PSSsh.Cmdlet
 {
     /// <summary>
-    /// 対象のSSHサーバにSCPを使用してファイルをアップロード
+    /// SCPアップロード用コマンドレット
     /// </summary>
     [Cmdlet(VerbsLifecycle.Invoke, "ScpUpload")]
-    public class InvokeScpUpload : PSCmdlet
+    internal class InvokeScpUpload : PSCmdletExtension
     {
-        [Parameter(Mandatory = true, Position = 0)]
+        #region Command Parameter
+
+        [Parameter(Position = 0)]
         public string Server { get; set; }
+
         [Parameter]
-        public int Port { get; set; } = Item.DEFAULT_PORT;
+        public int? Port { get; set; }
+
         [Parameter(Position = 1)]
         public string User { get; set; }
+
         [Parameter(Position = 2)]
-        [LogIgnore]
         public string Password { get; set; }
+
         [Parameter]
-        [LogNotNull]
         public string PasswordFile { get; set; }
+
         [Parameter]
-        [LogIgnore]
         public PSCredential Credential { get; set; }
+
         [Parameter]
         public SwitchParameter KeyboardInteractive { get; set; }
-        [Parameter]
-        [LogNotNull]
-        public SwitchParameter DebugMode { get; set; }
 
         [Parameter(Mandatory = true)]
         public string RemotePath { get; set; }
+
         [Parameter(Mandatory = true)]
         public string LocalPath { get; set; }
 
+        #endregion
+
         protected override void BeginProcessing()
         {
-            //  カレントディレクトリカレントディレクトリの一時変更
-            Item.CurrentDirectory = Environment.CurrentDirectory;
-            Environment.CurrentDirectory = this.SessionState.Path.CurrentFileSystemLocation.Path;
+            base.BeginProcessing();
 
-            if (Credential != null)
-            {
-                User = Credential.UserName;
-                Password = Marshal.PtrToStringUni(Marshal.SecureStringToGlobalAllocUnicode(Credential.Password));
-            }
-            else if (!string.IsNullOrEmpty(PasswordFile) && File.Exists(PasswordFile))
-            {
-                Collection<PSObject> invokeResult = InvokeCommand.InvokeScript(
-                    SessionState,
-                    InvokeCommand.NewScriptBlock(string.Format(
-                        "[System.Runtime.InteropServices.Marshal]::PtrToStringBSTR(" +
-                        "[System.Runtime.InteropServices.Marshal]::SecureStringToBSTR(" +
-                        "(Get-Content \"{0}\" | ConvertTo-SecureString)))", PasswordFile)));
-                if (invokeResult != null && invokeResult.Count > 0)
-                {
-                    Password = invokeResult[0].ToString();
-                }
-            }
-
-            bool debugMode = DebugMode;
-#if DEBUG
-            debugMode = true;
-#endif
-            Item.Logger = Function.SetLogger(Item.LOG_DIRECTORY, "InvokeScpUpload", debugMode);
-            Item.Logger.Info(Function.GetPropertyString<InvokeScpUpload>(this));
+            this.User = GetUserName(this.User, this.Credential);
+            this.Password = GetPassword(this.Password, this.Credential, this.PasswordFile);
         }
 
         protected override void ProcessRecord()
         {
-            //ConnectionInfo info = new SshConnection(Server, Port, User, Password, KeyboardInteractive).GetConnectionInfo();
-            ConnectionInfo info = SshConnection.GetConnectionInfo(Server, Port, User, Password, KeyboardInteractive);
-
+            var info = new ServerInfo(this.Server, defaultPort: this.Port ?? 22, defaultProtocol: "ssh");
+            var connectionInfo = GetConnectionInfo(info.Server, info.Port, this.User, this.Password, KeyboardInteractive);
             try
             {
-                //  ↓Uploadがうまくいかない
-                using (ScpClient scp = new ScpClient(info))
+                //  [案]動作確認中
+                using (var client = new ScpClient(connectionInfo))
                 {
-                    scp.RemotePathTransformation = RemotePathTransformation.ShellQuote;
-                    scp.ConnectionInfo.Timeout = TimeSpan.FromSeconds(Item.CONNECT_TIMEOUT_SECOND);
-                    scp.Connect();
-                    scp.Upload(new FileInfo(LocalPath), RemotePath);
+                    client.RemotePathTransformation = RemotePathTransformation.ShellQuote;
+                    client.ConnectionInfo.Timeout = TimeSpan.FromSeconds(CONNECT_TIMEOUT);
+                    client.Connect();
+                    client.Upload(new FileInfo(LocalPath), RemotePath);
                 }
             }
             catch (Exception e)
             {
-                Item.Logger.Error(e.ToString());
+                Console.WriteLine(e);
             }
-        }
-
-        protected override void EndProcessing()
-        {
-            //  カレントディレクトリを戻す
-            Environment.CurrentDirectory = Item.CurrentDirectory;
-
-            //  Loggerを終了
-            Item.Logger = null;
         }
     }
 }

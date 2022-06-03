@@ -4,118 +4,98 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Management.Automation;
+using PSSsh.Lib;
 using Renci.SshNet;
-using Renci.SshNet.Common;
-using System.Threading;
-using System.IO;
-using System.Runtime.InteropServices;
-using System.Security;
-using System.Collections.ObjectModel;
+using System.Text.RegularExpressions;
 
 namespace PSSsh.Cmdlet
 {
     /// <summary>
-    /// 対象のSSHサーバ宛にSSH接続してコマンドを実行
+    /// SSHコマンド実行用コマンドレット
     /// </summary>
     [Cmdlet(VerbsLifecycle.Invoke, "SshCommand")]
-    public class InvokeSshCommand : PSCmdlet
+    internal class InvokeSshCommand : PSCmdletExtension
     {
-        [Parameter(Mandatory = true, Position = 0)]
+        #region Command Parameter
+
+        [Parameter(Position = 0)]
         public string Server { get; set; }
+
         [Parameter]
-        public int Port { get; set; } = Item.DEFAULT_PORT;
+        public int? Port { get; set; }
+
         [Parameter(Position = 1)]
         public string User { get; set; }
+
         [Parameter(Position = 2)]
-        [LogIgnore]
         public string Password { get; set; }
+
         [Parameter]
-        [LogNotNull]
         public string PasswordFile { get; set; }
+
         [Parameter]
-        [LogIgnore]
         public PSCredential Credential { get; set; }
+
         [Parameter]
         public SwitchParameter KeyboardInteractive { get; set; }
-        [Parameter]
-        [LogNotNull]
-        public SwitchParameter DebugMode { get; set; }
 
-        [Parameter(Mandatory = true)]
+        [Parameter]
         public string[] Command { get; set; }
+
+        [Parameter]
+        public string CommandFile { get; set; }
+
         [Parameter]
         public string Output { get; set; }
 
+        #endregion
+
+        readonly Regex pattern_return = new Regex(@"\r?\n");
+
         protected override void BeginProcessing()
         {
-            //  カレントディレクトリカレントディレクトリの一時変更
-            Item.CurrentDirectory = Environment.CurrentDirectory;
-            Environment.CurrentDirectory = this.SessionState.Path.CurrentFileSystemLocation.Path;
+            base.BeginProcessing();
 
-            if (Credential != null)
-            {
-                User = Credential.UserName;
-                Password = Marshal.PtrToStringUni(Marshal.SecureStringToGlobalAllocUnicode(Credential.Password));
-            }
-            else if (!string.IsNullOrEmpty(PasswordFile) && File.Exists(PasswordFile))
-            {
-                Collection<PSObject> invokeResult = InvokeCommand.InvokeScript(
-                    SessionState,
-                    InvokeCommand.NewScriptBlock(string.Format(
-                        "[System.Runtime.InteropServices.Marshal]::PtrToStringBSTR(" +
-                        "[System.Runtime.InteropServices.Marshal]::SecureStringToBSTR(" +
-                        "(Get-Content \"{0}\" | ConvertTo-SecureString)))", PasswordFile)));
-                if (invokeResult != null && invokeResult.Count > 0)
-                {
-                    Password = invokeResult[0].ToString();
-                }
-            }
-
-            bool debugMode = DebugMode;
-#if DEBUG
-            debugMode = true;
-#endif
-            Item.Logger = Function.SetLogger(Item.LOG_DIRECTORY, "InvokeSshCommand", debugMode);
-            Item.Logger.Info(Function.GetPropertyString<InvokeSshCommand>(this));
+            this.User = GetUserName(this.User, this.Credential);
+            this.Password = GetPassword(this.Password, this.Credential, this.PasswordFile);
         }
 
         protected override void ProcessRecord()
         {
-            //ConnectionInfo info = new SshConnection(Server, Port, User, Password, KeyboardInteractive).GetConnectionInfo();
-            ConnectionInfo info = SshConnection.GetConnectionInfo(Server, Port, User, Password, KeyboardInteractive);
+            if ((this.Command == null || this.Command.Length == 0) &&
+                !string.IsNullOrEmpty(this.CommandFile) && File.Exists(this.CommandFile))
+            {
+                string text = File.ReadAllText(this.CommandFile);
+                this.Command = pattern_return.Split(text);
+            }
 
+            var info = new ServerInfo(this.Server, defaultPort: this.Port ?? 22, defaultProtocol: "ssh");
+            var connectionInfo = GetConnectionInfo(info.Server, info.Port, this.User, this.Password, KeyboardInteractive);
             try
             {
-                using (SshClient ssh = new SshClient(info))
+                using (var client = new SshClient(connectionInfo))
                 {
-                    ssh.ConnectionInfo.Timeout = TimeSpan.FromSeconds(Item.CONNECT_TIMEOUT_SECOND);
-                    ssh.Connect();
+                    client.ConnectionInfo.Timeout = TimeSpan.FromSeconds(CONNECT_TIMEOUT);
+                    client.Connect();
 
-                    foreach (string cmd in Command)
+                    foreach (string line in Command)
                     {
-                        SshCommand command = ssh.CreateCommand(cmd);
+                        SshCommand command = client.CreateCommand(line);
                         command.Execute();
 
-                        List<string> splitResult = System.Text.RegularExpressions.Regex.Split(command.Result, @"\r?\n").ToList();
+                        List<string> splitResult = pattern_return.Split(command.Result).ToList();
                         splitResult.RemoveAt(0);
                         splitResult.RemoveAt(splitResult.Count - 1);
-
-                        if (string.IsNullOrEmpty(Output))
+                        if (string.IsNullOrEmpty(this.Output))
                         {
                             WriteObject(string.Join("\r\n", splitResult), true);
                         }
                         else
                         {
-                            if (Output.Contains("\\"))
+                            TargetDirectory.CreateParent(this.Output);
+                            using (var sw = new StreamWriter(Output, true, new UTF8Encoding(false)))
                             {
-                                if (!Directory.Exists(Path.GetDirectoryName(Output)))
-                                {
-                                    Directory.CreateDirectory(Path.GetDirectoryName(Output));
-                                }
-                            }
-                            using (StreamWriter sw = new StreamWriter(Output, true, Encoding.GetEncoding("Shift_JIS")))
-                            {
-                                sw.Write(string.Join("\r", splitResult));
+                                sw.Write(string.Join("\r\n", splitResult));
                             }
                         }
                     }
@@ -123,17 +103,8 @@ namespace PSSsh.Cmdlet
             }
             catch (Exception e)
             {
-                Item.Logger.Error(e.ToString());
+                Console.WriteLine(e);
             }
-        }
-
-        protected override void EndProcessing()
-        {
-            //  カレントディレクトリを戻す
-            Environment.CurrentDirectory = Item.CurrentDirectory;
-
-            //  Loggerを終了
-            Item.Logger = null;
         }
     }
 }

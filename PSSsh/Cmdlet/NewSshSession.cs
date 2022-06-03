@@ -8,8 +8,8 @@ using PSSsh.Lib;
 
 namespace PSSsh.Cmdlet
 {
-    [Cmdlet(VerbsCommon.Enter, "SshSession")]
-    internal class EnterSshSession : PSCmdletExtension
+    [Cmdlet(VerbsCommon.New, "SshSession")]
+    internal class NewSshSession : PSCmdletExtension
     {
     }
 }
