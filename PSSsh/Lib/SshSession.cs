@@ -34,24 +34,22 @@ namespace PSSsh.Lib
         }
         public string Password
         {
-            get { return "********"; }          //  パスワードを表示させない
+            get { return "********"; }   //  パスワードを表示させない
             set { if (!string.IsNullOrEmpty(value)) _password = value; }
         }
         public bool KeyboardInteractive { get; set; }
 
         #endregion
 
+        public bool Effemeral { get; set; }
+
         private SshClient _ssh = null;
         private ScpClient _scp = null;
         private SftpClient _sftp = null;
 
         const int _timeout = 10;
-
         private bool _isOpen = false;
         ConnectionInfo _connectionInfo = null;
-
-
-        
 
         public void Open()
         {
@@ -137,6 +135,11 @@ namespace PSSsh.Lib
         ~SshSession()
         {
             Close();
+        }
+
+        public void CloseIfEffemeral()
+        {
+            if (this.Effemeral) Close();
         }
 
         public void Close()

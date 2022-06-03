@@ -72,20 +72,15 @@ namespace PSSsh.Cmdlet
                 this.Command = pattern_return.Split(text);
             }
 
-            bool needDispose = false;
-
-            if (this.Session == null)
+            this.Session ??= new SshSession()
             {
-                Session = new SshSession()
-                {
-                    Server = this.Server,
-                    Port = this.Port,
-                    User = this.User,
-                    Password = this.Password,
-                    KeyboardInteractive = this.KeyboardInteractive,
-                };
-                needDispose = true;
-            }
+                Server = this.Server,
+                Port = this.Port,
+                User = this.User,
+                Password = this.Password,
+                KeyboardInteractive = this.KeyboardInteractive,
+                Effemeral = true,   //  コマンドパラメータでSession指定が無い場合、Effemeral。
+            };
 
             var client = Session.CreateAndConnectSshClient();
             if (client.IsConnected)
@@ -112,7 +107,8 @@ namespace PSSsh.Cmdlet
                     }
                 }
             }
-            if (needDispose) client.Dispose();
+
+            Session.CloseIfEffemeral();
         }
     }
 }

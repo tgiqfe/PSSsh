@@ -60,6 +60,9 @@ namespace PSSsh.Cmdlet
 
         protected override void ProcessRecord()
         {
+
+
+
             var info = new ServerInfo(this.Server, defaultPort: this.Port ?? 22, defaultProtocol: "ssh");
             var connectionInfo = GetConnectionInfo(info.Server, info.Port, this.User, this.Password, KeyboardInteractive);
             try
