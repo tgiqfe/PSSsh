@@ -35,6 +35,12 @@ namespace PSSsh.Cmdlet
 
         #endregion
 
+        /// <summary>
+        /// ユーザー名を決定して返す
+        /// </summary>
+        /// <param name="user"></param>
+        /// <param name="credential"></param>
+        /// <returns></returns>
         protected string GetUserName(string user, PSCredential credential)
         {
             if (credential != null)
@@ -45,14 +51,17 @@ namespace PSSsh.Cmdlet
             {
                 Console.Write("User: ");
                 user = Console.ReadLine();
-                if (string.IsNullOrEmpty(user))
-                {
-                    return Environment.UserName;
-                }
             }
             return user;
         }
 
+        /// <summary>
+        /// パスワードを決定して返す。
+        /// </summary>
+        /// <param name="password"></param>
+        /// <param name="credential"></param>
+        /// <param name="passwordFile"></param>
+        /// <returns></returns>
         protected string GetPassword(string password, PSCredential credential, string passwordFile)
         {
             if (credential != null)
@@ -74,12 +83,17 @@ namespace PSSsh.Cmdlet
             }
             else if (string.IsNullOrEmpty(password))
             {
-                //  Password, PasswordFile, Credentialの全部がからの場合
-                password = ReadPassword();
+                //  Password, PasswordFile, Credentialの全部が空の場合
+                return ReadPassword();
             }
             return password;
         }
 
+        /// <summary>
+        /// パスワード入力
+        /// 入力した文字はアスタリスクで表示
+        /// </summary>
+        /// <returns></returns>
         private string ReadPassword()
         {
             Console.Write("Password: ");
