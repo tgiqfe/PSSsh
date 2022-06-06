@@ -14,7 +14,7 @@ namespace PSSsh.Cmdlet
     /// SCPアップロード用コマンドレット
     /// </summary>
     [Cmdlet(VerbsLifecycle.Invoke, "ScpUpload")]
-    internal class InvokeScpUpload : PSCmdletExtension
+    public class InvokeScpUpload : PSCmdletExtension
     {
         #region Command Parameter
 

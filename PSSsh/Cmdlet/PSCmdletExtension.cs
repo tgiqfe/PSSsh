@@ -7,9 +7,9 @@ using System.Management.Automation;
 using Renci.SshNet;
 using Renci.SshNet.Common;
 
-namespace PSSsh.Lib
+namespace PSSsh.Cmdlet
 {
-    internal class PSCmdletExtension : PSCmdlet
+    public class PSCmdletExtension : PSCmdlet
     {
         /// <summary>
         /// SSH接続時のサーバ接続までのタイムアウト値(秒)
@@ -24,7 +24,7 @@ namespace PSSsh.Lib
         {
             //  カレントディレクトリカレントディレクトリの一時変更
             _currentDirectory = Environment.CurrentDirectory;
-            Environment.CurrentDirectory = this.SessionState.Path.CurrentFileSystemLocation.Path;
+            Environment.CurrentDirectory = SessionState.Path.CurrentFileSystemLocation.Path;
         }
 
         protected override void EndProcessing()
@@ -40,6 +40,15 @@ namespace PSSsh.Lib
             if (credential != null)
             {
                 return credential.UserName;
+            }
+            if (string.IsNullOrEmpty(user))
+            {
+                Console.Write("User: ");
+                user = Console.ReadLine();
+                if (string.IsNullOrEmpty(user))
+                {
+                    return Environment.UserName;
+                }
             }
             return user;
         }
@@ -60,6 +69,14 @@ namespace PSSsh.Lib
                         "[System.Runtime.InteropServices.Marshal]::SecureStringToBSTR(" +
                         $"(Get-Content \"{passwordFile}\" | ConvertTo-SecureString)))"));
                 if (res != null && res.Count > 0) return res[0].ToString();
+            }
+            else if(string.IsNullOrEmpty(password))
+            {
+                Console.Write("Password: ");
+                password = Console.ReadLine();
+
+                //  [案]Password, PasswordFile, Credentialの全部が空っぽだった場合、対話でパスワード入力を。
+
             }
             return password;
         }

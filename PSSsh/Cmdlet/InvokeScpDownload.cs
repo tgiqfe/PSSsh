@@ -14,7 +14,7 @@ namespace PSSsh.Cmdlet
     /// Scpダウンロード用コマンドレット
     /// </summary>
     [Cmdlet(VerbsLifecycle.Invoke, "ScpDownload")]
-    internal class InvokeScpDownload : PSCmdletExtension
+    public class InvokeScpDownload : PSCmdletExtension
     {
         #region Command Parameter
 

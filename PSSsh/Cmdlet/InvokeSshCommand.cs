@@ -14,7 +14,7 @@ namespace PSSsh.Cmdlet
     /// SSHコマンド実行用コマンドレット
     /// </summary>
     [Cmdlet(VerbsLifecycle.Invoke, "SshCommand")]
-    internal class InvokeSshCommand : PSCmdletExtension
+    public class InvokeSshCommand : PSCmdletExtension
     {
         #region Command Parameter
 

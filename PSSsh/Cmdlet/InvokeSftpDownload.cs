@@ -13,7 +13,7 @@ namespace PSSsh.Cmdlet
     /// SFTPダウンロード用コマンドレット
     /// </summary>
     [Cmdlet(VerbsLifecycle.Invoke, "SftpDownload")]
-    internal class InvokeSftpDownload : PSCmdletExtension
+    public class InvokeSftpDownload : PSCmdletExtension
     {
         #region Command Parameter
 
