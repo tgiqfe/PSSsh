@@ -57,11 +57,13 @@ namespace PSSsh.Cmdlet
         {
             if (credential != null)
             {
+                //  Credentialからパスワード読み取り
                 return System.Runtime.InteropServices.Marshal.PtrToStringUni(
                     System.Runtime.InteropServices.Marshal.SecureStringToGlobalAllocUnicode(credential.Password));
             }
             else if (!string.IsNullOrEmpty(passwordFile) && File.Exists(passwordFile))
             {
+                //  PasswordFileからパスワード読み取り
                 var res = InvokeCommand.InvokeScript(
                     SessionState,
                     InvokeCommand.NewScriptBlock(
@@ -70,45 +72,67 @@ namespace PSSsh.Cmdlet
                         $"(Get-Content \"{passwordFile}\" | ConvertTo-SecureString)))"));
                 if (res != null && res.Count > 0) return res[0].ToString();
             }
-            else if(string.IsNullOrEmpty(password))
+            else if (string.IsNullOrEmpty(password))
             {
-                Console.Write("Password: ");
-                password = Console.ReadLine();
-
-                //  [案]Password, PasswordFile, Credentialの全部が空っぽだった場合、対話でパスワード入力を。
-
+                //  Password, PasswordFile, Credentialの全部がからの場合
+                password = ReadPassword();
             }
             return password;
         }
 
-        //  ↓削除予定メソッド (移行済み)
-        protected ConnectionInfo GetConnectionInfo(string server, int port, string user, string password, bool keyboardInteractive)
+        private string ReadPassword()
         {
-            if (keyboardInteractive)
-            {
-                var keyAuth = new KeyboardInteractiveAuthenticationMethod(user);
-                keyAuth.AuthenticationPrompt += new EventHandler<AuthenticationPromptEventArgs>((sender, e) =>
-                {
-                    foreach (var prompt in e.Prompts)
-                    {
-                        if (prompt.Request.StartsWith("Password:", StringComparison.OrdinalIgnoreCase))
-                        {
-                            prompt.Response = password;
-                        }
-                        if (prompt.Request.StartsWith("Verification code:", StringComparison.OrdinalIgnoreCase))
-                        {
-                            //  [案]ワンタイムパスワードを入力し、失敗した終了
-                            //  ワンタイムパスワード用
-                        }
+            Console.Write("Password: ");
 
-                    }
-                });
-                return new ConnectionInfo(server, port, user, keyAuth);
-            }
-            else
+            var sb = new StringBuilder();
+            ConsoleKeyInfo key;
+            int startTop = Console.CursorTop;
+            int startLeft = Console.CursorLeft;
+
+            while ((key = Console.ReadKey(true)).Key != ConsoleKey.Enter)
             {
-                return new ConnectionInfo(server, port, user, new AuthenticationMethod[] { new PasswordAuthenticationMethod(user, password) });
+                switch (key.Key)
+                {
+                    case ConsoleKey.Backspace:
+                        if (sb.Length > 0)
+                        {
+                            sb.Remove(sb.Length - 1, 1);
+
+                            if (Console.CursorLeft == 0)
+                            {
+                                Console.SetCursorPosition(Console.BufferWidth - 1, Console.CursorTop - 1);
+                                Console.Write(' ');
+                                Console.SetCursorPosition(Console.BufferWidth - 1, Console.CursorTop);
+                            }
+                            else
+                            {
+                                Console.Write("\b \b");
+                            }
+                        }
+                        break;
+                    case ConsoleKey.Tab:
+                        break;
+                    case ConsoleKey.Escape:
+                        Console.SetCursorPosition(0, Console.CursorTop);
+                        while (Console.CursorTop > startTop)
+                        {
+                            Console.Write(new string(' ', Console.WindowWidth));
+                            Console.SetCursorPosition(0, Console.CursorTop - 1);
+                        }
+                        Console.Write(new string(' ', Console.WindowWidth));
+                        Console.SetCursorPosition(0, Console.CursorTop);
+                        Console.Write("Password: ");
+                        sb.Clear();
+                        break;
+                    default:
+                        sb.Append(key.KeyChar);
+                        Console.Write("*");
+                        break;
+                }
             }
+
+            Console.WriteLine();
+            return sb.ToString();
         }
     }
 }
