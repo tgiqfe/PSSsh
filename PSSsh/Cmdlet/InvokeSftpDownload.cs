@@ -13,7 +13,7 @@ namespace PSSsh.Cmdlet
     /// SFTPダウンロード用コマンドレット
     /// </summary>
     [Cmdlet(VerbsLifecycle.Invoke, "SftpDownload")]
-    internal class InvokeSftpDownload : PSCmdletExtension
+    public class InvokeSftpDownload : PSCmdletExtension
     {
         #region Command Parameter
 
@@ -70,9 +70,12 @@ namespace PSSsh.Cmdlet
             };
 
             var client = Session.CreateAndConnectSftpClient();
-            using(var fs = File.OpenWrite(LocalPath))
+            if (client.IsConnected)
             {
-                client.DownloadFile(RemotePath, fs);
+                using (var fs = File.OpenWrite(LocalPath))
+                {
+                    client.DownloadFile(RemotePath, fs);
+                }
             }
             Session.CloseIfEffemeral();
         }

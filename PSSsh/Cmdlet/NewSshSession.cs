@@ -9,7 +9,7 @@ using PSSsh.Lib;
 namespace PSSsh.Cmdlet
 {
     [Cmdlet(VerbsCommon.New, "SshSession")]
-    internal class NewSshSession : PSCmdletExtension
+    public class NewSshSession : PSCmdletExtension
     {
         #region Command Parameter
 

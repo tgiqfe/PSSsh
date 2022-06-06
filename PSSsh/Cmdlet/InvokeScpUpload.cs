@@ -14,7 +14,7 @@ namespace PSSsh.Cmdlet
     /// SCPアップロード用コマンドレット
     /// </summary>
     [Cmdlet(VerbsLifecycle.Invoke, "ScpUpload")]
-    internal class InvokeScpUpload : PSCmdletExtension
+    public class InvokeScpUpload : PSCmdletExtension
     {
         #region Command Parameter
 
@@ -71,8 +71,11 @@ namespace PSSsh.Cmdlet
             };
 
             var client = Session.CreateAndConnectScpClient();
-            client.RemotePathTransformation = RemotePathTransformation.ShellQuote;
-            client.Upload(new FileInfo(LocalPath), RemotePath);
+            if (client.IsConnected)
+            {
+                client.RemotePathTransformation = RemotePathTransformation.ShellQuote;
+                client.Upload(new FileInfo(LocalPath), RemotePath);
+            }
             Session.CloseIfEffemeral();
         }
     }

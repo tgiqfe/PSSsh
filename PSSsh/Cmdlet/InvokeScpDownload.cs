@@ -14,7 +14,7 @@ namespace PSSsh.Cmdlet
     /// Scpダウンロード用コマンドレット
     /// </summary>
     [Cmdlet(VerbsLifecycle.Invoke, "ScpDownload")]
-    internal class InvokeScpDownload : PSCmdletExtension
+    public class InvokeScpDownload : PSCmdletExtension
     {
         #region Command Parameter
 
@@ -71,8 +71,11 @@ namespace PSSsh.Cmdlet
             };
 
             var client = Session.CreateAndConnectScpClient();
-            client.RemotePathTransformation = RemotePathTransformation.ShellQuote;
-            client.Download(RemotePath, new FileInfo(LocalPath));
+            if (client.IsConnected)
+            {
+                client.RemotePathTransformation = RemotePathTransformation.ShellQuote;
+                client.Download(RemotePath, new FileInfo(LocalPath));
+            }
             Session.CloseIfEffemeral();
         }
     }

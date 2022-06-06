@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace PSSsh.Lib
 {
-    internal class SshSession : IDisposable
+    public class SshSession : IDisposable
     {
         #region SSH Connect parameter
 
@@ -51,41 +51,43 @@ namespace PSSsh.Lib
         private bool _isOpen = false;
         ConnectionInfo _connectionInfo = null;
 
+        //  [案]公開鍵を使用してのSSH接続の実装も検討要
+
         public void Open()
         {
             if (_isOpen) { return; }
 
             var info = new ServerInfo(_server, defaultPort: _port ?? 22, defaultProtocol: "ssh");
-            _connectionInfo = getConnectionInfo(info.Server, info.Port, _user, _password, KeyboardInteractive);
+            _connectionInfo = GetConnectionInfo(info.Server, info.Port, _user, _password, KeyboardInteractive);
             _isOpen = true;
+        }
 
-            ConnectionInfo getConnectionInfo(string server, int port, string user, string password, bool keyboardInteractive)
+        private ConnectionInfo GetConnectionInfo(string server, int port, string user, string password, bool keyboardInteractive)
+        {
+            if (keyboardInteractive)
             {
-                if (keyboardInteractive)
+                var keyAuth = new KeyboardInteractiveAuthenticationMethod(user);
+                keyAuth.AuthenticationPrompt += new EventHandler<AuthenticationPromptEventArgs>((sender, e) =>
                 {
-                    var keyAuth = new KeyboardInteractiveAuthenticationMethod(user);
-                    keyAuth.AuthenticationPrompt += new EventHandler<AuthenticationPromptEventArgs>((sender, e) =>
+                    foreach (var prompt in e.Prompts)
                     {
-                        foreach (var prompt in e.Prompts)
+                        if (prompt.Request.StartsWith("Password:", StringComparison.OrdinalIgnoreCase))
                         {
-                            if (prompt.Request.StartsWith("Password:", StringComparison.OrdinalIgnoreCase))
-                            {
-                                prompt.Response = password;
-                            }
-                            if (prompt.Request.StartsWith("Verification code:", StringComparison.OrdinalIgnoreCase))
-                            {
-                                //  [案]ワンタイムパスワードを入力し、失敗した終了
-                                //  ワンタイムパスワード用
-                            }
-
+                            prompt.Response = password;
                         }
-                    });
-                    return new ConnectionInfo(server, port, user, keyAuth);
-                }
-                else
-                {
-                    return new ConnectionInfo(server, port, user, new AuthenticationMethod[] { new PasswordAuthenticationMethod(user, password) });
-                }
+                        if (prompt.Request.StartsWith("Verification code:", StringComparison.OrdinalIgnoreCase))
+                        {
+                            //  [案]ワンタイムパスワードを入力し、失敗した終了
+                            //  ワンタイムパスワード用
+                        }
+
+                    }
+                });
+                return new ConnectionInfo(server, port, user, keyAuth);
+            }
+            else
+            {
+                return new ConnectionInfo(server, port, user, new AuthenticationMethod[] { new PasswordAuthenticationMethod(user, password) });
             }
         }
 
