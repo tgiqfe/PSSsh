@@ -70,9 +70,12 @@ namespace PSSsh.Cmdlet
             };
 
             var client = Session.CreateAndConnectSftpClient();
-            using(var fs = File.OpenWrite(LocalPath))
+            if (client.IsConnected)
             {
-                client.DownloadFile(RemotePath, fs);
+                using (var fs = File.OpenWrite(LocalPath))
+                {
+                    client.DownloadFile(RemotePath, fs);
+                }
             }
             Session.CloseIfEffemeral();
         }

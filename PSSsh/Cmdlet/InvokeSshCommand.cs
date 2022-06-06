@@ -107,7 +107,6 @@ namespace PSSsh.Cmdlet
                     }
                 }
             }
-
             Session.CloseIfEffemeral();
         }
     }

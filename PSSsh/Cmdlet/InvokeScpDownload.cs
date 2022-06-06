@@ -71,8 +71,11 @@ namespace PSSsh.Cmdlet
             };
 
             var client = Session.CreateAndConnectScpClient();
-            client.RemotePathTransformation = RemotePathTransformation.ShellQuote;
-            client.Download(RemotePath, new FileInfo(LocalPath));
+            if (client.IsConnected)
+            {
+                client.RemotePathTransformation = RemotePathTransformation.ShellQuote;
+                client.Download(RemotePath, new FileInfo(LocalPath));
+            }
             Session.CloseIfEffemeral();
         }
     }
