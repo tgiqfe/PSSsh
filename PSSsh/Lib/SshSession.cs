@@ -91,6 +91,17 @@ namespace PSSsh.Lib
             }
         }
 
+        public bool IsUserEmpty()
+        {
+            return string.IsNullOrEmpty(_user);
+        }
+
+        public bool IsPasswordEmpty()
+        {
+            return string.IsNullOrEmpty(_password);
+        }
+
+
         #region Create client
 
         /// <summary>

@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Management.Automation;
 using Renci.SshNet;
 using Renci.SshNet.Common;
+using PSSsh.Lib;
 
 namespace PSSsh.Cmdlet
 {
@@ -41,13 +42,13 @@ namespace PSSsh.Cmdlet
         /// <param name="user"></param>
         /// <param name="credential"></param>
         /// <returns></returns>
-        protected string GetUserName(string user, PSCredential credential)
+        protected string GetUserName(string user, PSCredential credential, SshSession session)
         {
             if (credential != null)
             {
                 return credential.UserName;
             }
-            if (string.IsNullOrEmpty(user))
+            if (string.IsNullOrEmpty(user) && (session?.IsUserEmpty() ?? true))
             {
                 Console.Write("User: ");
                 user = Console.ReadLine();
@@ -62,7 +63,7 @@ namespace PSSsh.Cmdlet
         /// <param name="credential"></param>
         /// <param name="passwordFile"></param>
         /// <returns></returns>
-        protected string GetPassword(string password, PSCredential credential, string passwordFile)
+        protected string GetPassword(string password, PSCredential credential, string passwordFile, SshSession session)
         {
             if (credential != null)
             {
@@ -98,7 +99,7 @@ namespace PSSsh.Cmdlet
                     }
                 }
             }
-            else if (string.IsNullOrEmpty(password))
+            else if (string.IsNullOrEmpty(password) && (session?.IsPasswordEmpty() ?? true))
             {
                 //  Password, PasswordFile, Credentialの全部が空の場合
                 return ReadPassword();
