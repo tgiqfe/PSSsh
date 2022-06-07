@@ -40,8 +40,8 @@ namespace PSSsh.Cmdlet
         {
             base.BeginProcessing();
 
-            this.User = GetUserName(this.User, this.Credential);
-            this.Password = GetPassword(this.Password, this.Credential, this.PasswordFile);
+            this.User = GetUserName(this.User, this.Credential, null);
+            this.Password = GetPassword(this.Password, this.Credential, this.PasswordFile, null);
         }
 
         protected override void ProcessRecord()
