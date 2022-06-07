@@ -73,13 +73,30 @@ namespace PSSsh.Cmdlet
             else if (!string.IsNullOrEmpty(passwordFile) && File.Exists(passwordFile))
             {
                 //  PasswordFileからパスワード読み取り
-                var res = InvokeCommand.InvokeScript(
-                    SessionState,
-                    InvokeCommand.NewScriptBlock(
-                        "[System.Runtime.InteropServices.Marshal]::PtrToStringBSTR(" +
-                        "[System.Runtime.InteropServices.Marshal]::SecureStringToBSTR(" +
-                        $"(Get-Content \"{passwordFile}\" | ConvertTo-SecureString)))"));
-                if (res != null && res.Count > 0) return res[0].ToString();
+                try
+                {
+                    //  ===========================================
+                    //  $cred = Get-Credential
+                    //  $cred.Password | ConvertFrom-SecureString | Set-Content .\pwoutput.txt
+                    //  ===========================================
+                    //  等で、PowerShellで暗号化したパスワードファイルをした場合
+                    var res = InvokeCommand.InvokeScript(
+                        SessionState,
+                        InvokeCommand.NewScriptBlock(
+                            "[System.Runtime.InteropServices.Marshal]::PtrToStringBSTR(" +
+                            "[System.Runtime.InteropServices.Marshal]::SecureStringToBSTR(" +
+                            $"(Get-Content \"{passwordFile}\" | ConvertTo-SecureString)))"));
+                    if (res != null && res.Count > 0) return res[0].ToString();
+                }
+                catch
+                {
+                    //  PowerShellで暗号化したパスワードファイルの読み込みに失敗した場合、平文テキストとして読み込み
+                    //  複数行の場合、最初の1行のみをパスワードとして判断
+                    using (var sr = new StreamReader(passwordFile, new UTF8Encoding(false)))
+                    {
+                        return sr.ReadLine();
+                    }
+                }
             }
             else if (string.IsNullOrEmpty(password))
             {

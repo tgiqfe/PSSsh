@@ -8,7 +8,9 @@ using PSSsh.Lib;
 
 namespace PSSsh.Logs
 {
-    internal class LoggerBase : IDisposable
+    internal class LoggerBase<T> :
+        IDisposable
+        where T : LogBodyBase
     {
         /// <summary>
         /// ログ記述用ロック。静的パラメータ
@@ -30,6 +32,16 @@ namespace PSSsh.Logs
             TargetDirectory.CreateParent(_logFilePath);
             _writer = new StreamWriter(_logFilePath, _logAppend, new UTF8Encoding(false));
         }
+
+        public async Task SendAsync(T body)
+        {
+            using (await _lock.LockAsync())
+            {
+                string json = body.GetJson();
+                await _writer.WriteLineAsync(json);
+            }
+        }
+
 
         #region Close
 
