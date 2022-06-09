@@ -138,10 +138,20 @@ namespace PSSsh.Lib
         {
             Open();
             T client = (T)typeof(T).GetConstructor(new Type[] { typeof(ConnectionInfo) }).Invoke(new object[1] { _connectionInfo });
-            client.ConnectionInfo.Timeout = TimeSpan.FromSeconds(_timeout); ;
-            client.Connect();
+            client.ConnectionInfo.Timeout = TimeSpan.FromSeconds(_timeout);
+            
+            try
+            {
+                client.Connect();
+            }
+            catch (Renci.SshNet.Common.SshAuthenticationException sae)
+            {
+                Console.WriteLine("認証失敗");
+                Console.WriteLine(sae);
+            }
             return client;
         }
+
 
         #endregion
 
