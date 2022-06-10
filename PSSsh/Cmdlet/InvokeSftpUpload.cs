@@ -41,10 +41,10 @@ namespace PSSsh.Cmdlet
         [Parameter]
         public SshSession Session { get; set; }
 
-        [Parameter(Mandatory = true)]
+        [Parameter(Mandatory = true), Alias("Remote")]
         public string RemotePath { get; set; }
 
-        [Parameter(Mandatory = true)]
+        [Parameter(Mandatory = true), Alias("Local")]
         public string LocalPath { get; set; }
 
         #endregion
@@ -72,6 +72,8 @@ namespace PSSsh.Cmdlet
             var client = Session.CreateAndConnectSftpClient();
             if (client.IsConnected)
             {
+                //  [案]ここで「~」「%」「$」を含む場合に、一時的にSSHサーバへ問い合わせて変数解決
+
                 using (var fs = File.OpenWrite(LocalPath))
                 {
                     client.UploadFile(fs, RemotePath);
