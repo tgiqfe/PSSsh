@@ -91,8 +91,16 @@ namespace PSSsh.Cmdlet
                     command.Execute();
 
                     List<string> splitResult = pattern_return.Split(command.Result).ToList();
-                    splitResult.RemoveAt(0);
-                    splitResult.RemoveAt(splitResult.Count - 1);
+
+                    if (splitResult.Count > 0 && string.IsNullOrEmpty(splitResult[0]))
+                    {
+                        splitResult.RemoveAt(0);
+                    }
+                    if (splitResult.Count > 0 && string.IsNullOrEmpty(splitResult[splitResult.Count - 1]))
+                    {
+                        splitResult.RemoveAt(splitResult.Count - 1);
+                    }
+
                     if (string.IsNullOrEmpty(this.OutputFile))
                     {
                         WriteObject(string.Join("\r\n", splitResult), true);
