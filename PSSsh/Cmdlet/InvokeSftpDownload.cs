@@ -49,6 +49,9 @@ namespace PSSsh.Cmdlet
 
         #endregion
 
+        readonly System.Text.RegularExpressions.Regex pattern_return =
+            new System.Text.RegularExpressions.Regex(@"\r?\n");
+
         protected override void BeginProcessing()
         {
             base.BeginProcessing();
@@ -69,11 +72,20 @@ namespace PSSsh.Cmdlet
                 Effemeral = true,
             };
 
+            //  宛先に変数が含まれている場合、事前にSSHでコマンドを実行してパスを取得
+            if (RemotePath.Contains("~") || RemotePath.Contains("%") || RemotePath.Contains("$"))
+            {
+                var tempClient = Session.CreateAndConnectSshClient();
+                SshCommand tempCommand = tempClient.CreateCommand($"echo {RemotePath}");
+                tempCommand.Execute();
+
+                List<string> splitResult = pattern_return.Split(tempCommand.Result).ToList();
+                RemotePath = splitResult.Count > 0 ? splitResult[0] : null;
+            }
+
             var client = Session.CreateAndConnectSftpClient();
             if (client.IsConnected)
             {
-                //  [案]ここで「~」「%」「$」を含む場合に、一時的にSSHサーバへ問い合わせて変数解決
-
                 using (var fs = File.OpenWrite(LocalPath))
                 {
                     client.DownloadFile(RemotePath, fs);
