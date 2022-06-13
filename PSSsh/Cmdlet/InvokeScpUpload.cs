@@ -87,8 +87,6 @@ namespace PSSsh.Cmdlet
             var client = Session.CreateAndConnectScpClient();
             if (client.IsConnected)
             {
-                //  [案]ここで「~」「%」「$」を含む場合に、一時的にSSHサーバへ問い合わせて変数解決
-
                 client.RemotePathTransformation = RemotePathTransformation.ShellQuote;
                 client.Upload(new FileInfo(LocalPath), RemotePath);
             }
