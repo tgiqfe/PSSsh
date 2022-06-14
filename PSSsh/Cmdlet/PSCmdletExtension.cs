@@ -7,6 +7,7 @@ using System.Management.Automation;
 using Renci.SshNet;
 using Renci.SshNet.Common;
 using PSSsh.Lib;
+using System.Text.RegularExpressions;
 
 namespace PSSsh.Cmdlet
 {
@@ -35,6 +36,7 @@ namespace PSSsh.Cmdlet
         }
 
         #endregion
+        #region User,Password
 
         /// <summary>
         /// ユーザー名を決定して返す
@@ -165,6 +167,39 @@ namespace PSSsh.Cmdlet
 
             Console.WriteLine();
             return sb.ToString();
+        }
+
+        #endregion
+
+        /// <summary>
+        /// 改行コード判定用正規表現
+        /// </summary>
+        protected readonly Regex pattern_return = new Regex(@"\r?\n");
+
+        /// <summary>
+        /// リモートパスに環境変数を含んだパスであるかどうかを判定する為の文字。
+        /// Windows用⇒%、Linux/Mac用⇒~, $
+        /// </summary>
+        private char[] candidate_envChar = new[] { '%', '~', '$' };
+
+        /// <summary>
+        /// 宛先に変数が含まれている場合、事前にSSHでコマンドを実行してパスを取得
+        /// </summary>
+        /// <param name="session"></param>
+        /// <param name="remotePath"></param>
+        /// <returns></returns>
+        protected string ExpandRemotePath(SshSession session, string remotePath)
+        {
+            if (candidate_envChar.Any(x => remotePath.Contains(x)))
+            {
+                var client = session.CreateAndConnectSshClient();
+                SshCommand command = client.CreateCommand($"echo {remotePath}");
+                command.Execute();
+
+                List<string> splitResult = pattern_return.Split(command.Result).ToList();
+                return splitResult.Count > 0 ? splitResult[0] : null;
+            }
+            return remotePath;
         }
     }
 }

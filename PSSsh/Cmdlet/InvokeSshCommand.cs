@@ -53,8 +53,6 @@ namespace PSSsh.Cmdlet
 
         #endregion
 
-        readonly Regex pattern_return = new Regex(@"\r?\n");
-
         protected override void BeginProcessing()
         {
             base.BeginProcessing();
