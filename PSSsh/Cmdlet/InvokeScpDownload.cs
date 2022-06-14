@@ -50,9 +50,6 @@ namespace PSSsh.Cmdlet
 
         #endregion
 
-        readonly System.Text.RegularExpressions.Regex pattern_return =
-            new System.Text.RegularExpressions.Regex(@"\r?\n");
-
         protected override void BeginProcessing()
         {
             base.BeginProcessing();
@@ -74,14 +71,15 @@ namespace PSSsh.Cmdlet
             };
 
             //  宛先に変数が含まれている場合、事前にSSHでコマンドを実行してパスを取得
-            if (RemotePath.Contains("~") || RemotePath.Contains("%") || RemotePath.Contains("$"))
+            if (candidate_envChar.Any(x => RemotePath.Contains(x)))
             {
-                var tempClient = Session.CreateAndConnectSshClient();
-                SshCommand tempCommand = tempClient.CreateCommand($"echo {RemotePath}");
-                tempCommand.Execute();
+                this.RemotePath = Session.ExecCommandOneLine($"echo {RemotePath}");
+            }
 
-                List<string> splitResult = pattern_return.Split(tempCommand.Result).ToList();
-                RemotePath = splitResult.Count > 0 ? splitResult[0] : null;
+            //  ダウンロード先パスの末尾に「\\」「/」が含まれている場合、対象ディレクトリ配下パスに変更
+            if (candidate_dirSeparator.Any(x => LocalPath.EndsWith(x)))
+            {
+                this.LocalPath = GetPathFromDirectory(RemotePath, LocalPath);
             }
 
             var client = Session.CreateAndConnectScpClient();

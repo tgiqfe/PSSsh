@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Text.RegularExpressions;
 
 namespace PSSsh.Lib
 {
@@ -101,6 +102,47 @@ namespace PSSsh.Lib
             return string.IsNullOrEmpty(_password);
         }
 
+        private static readonly Regex pattern_return = new Regex(@"\r?\n");
+
+        /// <summary>
+        /// リモートSSHコマンドを実行し、最初の1行だけを返す。
+        /// </summary>
+        /// <param name="commandText"></param>
+        /// <returns></returns>
+        public string ExecCommandOneLine(string commandText)
+        {
+            var client = CreateAndConnectSshClient();
+            SshCommand command = client.CreateCommand(commandText);
+            command.Execute();
+
+            return pattern_return.Split(command.Result).DefinedFirst();
+        }
+
+        /// <summary>
+        /// リモートSSHコマンドを実行して、接続先のOS種別を返す
+        /// </summary>
+        /// <returns></returns>
+        public PSSsh.Lib.Platform CheckRemotePlatform()
+        {
+            var client = CreateAndConnectSshClient();
+            SshCommand command = client.CreateCommand("uname");
+            command.Execute();
+
+            if (string.IsNullOrEmpty(command.Result))
+            {
+                //  unameコマンド実行失敗の為、Windows用コマンドを実行
+                command = client.CreateCommand($"ver");
+                command.Execute();
+            }
+
+            return pattern_return.Split(command.Result).DefinedFirst() switch
+            {
+                string w when w.StartsWith("Microsoft Windows") => PSSsh.Lib.Platform.Windows,
+                "Linux" => PSSsh.Lib.Platform.Linux,
+                "Darwin" => PSSsh.Lib.Platform.Mac,
+                _ => PSSsh.Lib.Platform.Unknown
+            };
+        }
 
         #region Create client
 
@@ -139,7 +181,7 @@ namespace PSSsh.Lib
             Open();
             T client = (T)typeof(T).GetConstructor(new Type[] { typeof(ConnectionInfo) }).Invoke(new object[1] { _connectionInfo });
             client.ConnectionInfo.Timeout = TimeSpan.FromSeconds(_timeout);
-            
+
             try
             {
                 client.Connect();

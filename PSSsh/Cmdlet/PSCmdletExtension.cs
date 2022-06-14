@@ -7,6 +7,7 @@ using System.Management.Automation;
 using Renci.SshNet;
 using Renci.SshNet.Common;
 using PSSsh.Lib;
+using System.Text.RegularExpressions;
 
 namespace PSSsh.Cmdlet
 {
@@ -35,6 +36,7 @@ namespace PSSsh.Cmdlet
         }
 
         #endregion
+        #region User,Password
 
         /// <summary>
         /// ユーザー名を決定して返す
@@ -166,5 +168,68 @@ namespace PSSsh.Cmdlet
             Console.WriteLine();
             return sb.ToString();
         }
+
+        #endregion
+
+        /// <summary>
+        /// 改行コード判定用正規表現
+        /// </summary>
+        //protected readonly Regex pattern_return = new Regex(@"\r?\n");
+
+        /// <summary>
+        /// リモートパスに環境変数を含んだパスであるかどうかを判定する為の文字。
+        /// Windows用⇒%、Linux/Mac用⇒~, $
+        /// </summary>
+        protected char[] candidate_envChar = new[] { '%', '~', '$' };
+
+        protected char[] candidate_dirSeparator = new[] { '\\', '/' };
+
+        protected string GetPathFromDirectory(string source, string destination)
+        {
+            return System.IO.Path.Combine(destination, System.IO.Path.GetFileName(source));
+        }
+
+        protected string GetPathFromDirectory(string source, string destination, Lib.Platform platform)
+        {
+            if (candidate_dirSeparator.Any(x => destination.EndsWith(x)))
+            {
+                string fileName = System.IO.Path.GetFileName(source);
+                return platform switch
+                {
+                    Lib.Platform.Windows => $"{destination}\\{fileName}",
+                    Lib.Platform.Linux => $"{destination}/{fileName}",
+                    Lib.Platform.Mac => $"{destination}/{fileName}",
+                    _ => destination,
+                };
+            }
+
+            return destination;
+        }
+
+        /*
+        protected PSSsh.Lib.Platform CheckRemotePlatform(SshSession session)
+        {
+            var client = session.CreateAndConnectSshClient();
+            SshCommand command = client.CreateCommand($"uname");
+            command.Execute();
+
+            if (string.IsNullOrEmpty(command.Result))
+            {
+                //  unameコマンド実行失敗の為、Windowsと仮定
+                command = client.CreateCommand($"ver");
+                command.Execute();
+            }
+            List<string> splitResult = pattern_return.Split(command.Result).ToList();
+            string result = splitResult.Count > 0 ? splitResult[0] : null;
+
+            return result switch
+            {
+                string w when w.StartsWith("Microsoft Windows") => PSSsh.Lib.Platform.Windows,
+                "Linux" => PSSsh.Lib.Platform.Linux,
+                "Darwin" => PSSsh.Lib.Platform.Mac,
+                _ => PSSsh.Lib.Platform.Unknown
+            };
+        }
+        */
     }
 }
