@@ -201,5 +201,29 @@ namespace PSSsh.Cmdlet
             }
             return remotePath;
         }
+
+        protected PSSsh.Lib.Platform CheckRemotePlatform(SshSession session)
+        {
+            var client = session.CreateAndConnectSshClient();
+            SshCommand command = client.CreateCommand($"uname");
+            command.Execute();
+
+            if (string.IsNullOrEmpty(command.Result))
+            {
+                //  unameコマンド実行失敗の為、Windowsと仮定
+                command = client.CreateCommand($"ver");
+                command.Execute();
+            }
+            List<string> splitResult = pattern_return.Split(command.Result).ToList();
+            string result = splitResult.Count > 0 ? splitResult[0] : null;
+
+            return result switch
+            {
+                string w when w.StartsWith("Microsoft Windows") => PSSsh.Lib.Platform.Windows,
+                "Linux" => PSSsh.Lib.Platform.Linux,
+                "Darwin" => PSSsh.Lib.Platform.Mac,
+                _ => PSSsh.Lib.Platform.Unknown
+            };
+        }
     }
 }
