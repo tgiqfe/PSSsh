@@ -75,6 +75,15 @@ namespace PSSsh.Cmdlet
                 this.RemotePath = Session.ExecCommandOneLine($"echo {RemotePath}");
             }
 
+            //  アップロード先パスの末尾に「\\」「/」が含まれている場合、対象ディレクトリ配下パスに変更
+            if (candidate_dirSeparator.Any(x => LocalPath.EndsWith(x)))
+            {
+                this.RemotePath = GetPathFromDirectory(
+                    LocalPath,
+                    RemotePath,
+                    Session.CheckRemotePlatform());
+            }
+
             var client = Session.CreateAndConnectSftpClient();
             if (client.IsConnected)
             {

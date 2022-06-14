@@ -118,6 +118,32 @@ namespace PSSsh.Lib
             return pattern_return.Split(command.Result).DefinedFirst();
         }
 
+        /// <summary>
+        /// リモートSSHコマンドを実行して、接続先のOS種別を返す
+        /// </summary>
+        /// <returns></returns>
+        public PSSsh.Lib.Platform CheckRemotePlatform()
+        {
+            var client = CreateAndConnectSshClient();
+            SshCommand command = client.CreateCommand("uname");
+            command.Execute();
+
+            if (string.IsNullOrEmpty(command.Result))
+            {
+                //  unameコマンド実行失敗の為、Windows用コマンドを実行
+                command = client.CreateCommand($"ver");
+                command.Execute();
+            }
+
+            return pattern_return.Split(command.Result).DefinedFirst() switch
+            {
+                string w when w.StartsWith("Microsoft Windows") => PSSsh.Lib.Platform.Windows,
+                "Linux" => PSSsh.Lib.Platform.Linux,
+                "Darwin" => PSSsh.Lib.Platform.Mac,
+                _ => PSSsh.Lib.Platform.Unknown
+            };
+        }
+
         #region Create client
 
         /// <summary>

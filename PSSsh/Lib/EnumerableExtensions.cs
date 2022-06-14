@@ -28,7 +28,7 @@ namespace PSSsh.Lib
                 {
                     if (string.IsNullOrEmpty(list[i] as string))
                     {
-                        list.RemoveAt(0);
+                        list.RemoveAt(i);
                     }
                     else
                     {
@@ -46,7 +46,7 @@ namespace PSSsh.Lib
                 {
                     if (list[i] == null)
                     {
-                        list.RemoveAt(0);
+                        list.RemoveAt(i);
                     }
                     else
                     {

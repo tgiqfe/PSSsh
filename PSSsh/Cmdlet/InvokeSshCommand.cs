@@ -53,6 +53,8 @@ namespace PSSsh.Cmdlet
 
         #endregion
 
+        private readonly Regex pattern_return = new Regex(@"\r?\n");
+
         protected override void BeginProcessing()
         {
             base.BeginProcessing();
@@ -63,6 +65,7 @@ namespace PSSsh.Cmdlet
 
         protected override void ProcessRecord()
         {
+            //  Commandファイルから読み取り
             if ((this.Command == null || this.Command.Length == 0) &&
                 !string.IsNullOrEmpty(this.CommandFile) && File.Exists(this.CommandFile))
             {
@@ -88,6 +91,7 @@ namespace PSSsh.Cmdlet
                     SshCommand command = client.CreateCommand(line);
                     command.Execute();
 
+                    /*
                     List<string> splitResult = pattern_return.Split(command.Result).ToList();
 
                     if (splitResult.Count > 0 && string.IsNullOrEmpty(splitResult[0]))
@@ -98,6 +102,8 @@ namespace PSSsh.Cmdlet
                     {
                         splitResult.RemoveAt(splitResult.Count - 1);
                     }
+                    */
+                    var splitResult = pattern_return.Split(command.Result).Trim();
 
                     if (string.IsNullOrEmpty(this.OutputFile))
                     {

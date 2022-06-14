@@ -174,7 +174,7 @@ namespace PSSsh.Cmdlet
         /// <summary>
         /// 改行コード判定用正規表現
         /// </summary>
-        protected readonly Regex pattern_return = new Regex(@"\r?\n");
+        //protected readonly Regex pattern_return = new Regex(@"\r?\n");
 
         /// <summary>
         /// リモートパスに環境変数を含んだパスであるかどうかを判定する為の文字。
@@ -182,6 +182,31 @@ namespace PSSsh.Cmdlet
         /// </summary>
         protected char[] candidate_envChar = new[] { '%', '~', '$' };
 
+        protected char[] candidate_dirSeparator = new[] { '\\', '/' };
+
+        protected string GetPathFromDirectory(string source, string destination)
+        {
+            return System.IO.Path.Combine(destination, System.IO.Path.GetFileName(source));
+        }
+
+        protected string GetPathFromDirectory(string source, string destination, Lib.Platform platform)
+        {
+            if (candidate_dirSeparator.Any(x => destination.EndsWith(x)))
+            {
+                string fileName = System.IO.Path.GetFileName(source);
+                return platform switch
+                {
+                    Lib.Platform.Windows => $"{destination}\\{fileName}",
+                    Lib.Platform.Linux => $"{destination}/{fileName}",
+                    Lib.Platform.Mac => $"{destination}/{fileName}",
+                    _ => destination,
+                };
+            }
+
+            return destination;
+        }
+
+        /*
         protected PSSsh.Lib.Platform CheckRemotePlatform(SshSession session)
         {
             var client = session.CreateAndConnectSshClient();
@@ -205,5 +230,6 @@ namespace PSSsh.Cmdlet
                 _ => PSSsh.Lib.Platform.Unknown
             };
         }
+        */
     }
 }
