@@ -69,24 +69,11 @@ namespace PSSsh.Cmdlet
                 Effemeral = true,
             };
 
-            //this.RemotePath = ExpandRemotePath(this.Session, this.RemotePath);
+            //  宛先に変数が含まれている場合、事前にSSHでコマンドを実行してパスを取得
             if (candidate_envChar.Any(x => RemotePath.Contains(x)))
             {
                 this.RemotePath = Session.ExecCommandOneLine($"echo {RemotePath}");
             }
-
-            /*
-            //  宛先に変数が含まれている場合、事前にSSHでコマンドを実行してパスを取得
-            if (RemotePath.Contains("~") || RemotePath.Contains("%") || RemotePath.Contains("$"))
-            {
-                var tempClient = Session.CreateAndConnectSshClient();
-                SshCommand tempCommand = tempClient.CreateCommand($"echo {RemotePath}");
-                tempCommand.Execute();
-
-                List<string> splitResult = pattern_return.Split(tempCommand.Result).ToList();
-                RemotePath = splitResult.Count > 0 ? splitResult[0] : null;
-            }
-            */
 
             var client = Session.CreateAndConnectSftpClient();
             if (client.IsConnected)

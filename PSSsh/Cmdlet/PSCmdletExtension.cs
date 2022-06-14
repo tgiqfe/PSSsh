@@ -182,26 +182,6 @@ namespace PSSsh.Cmdlet
         /// </summary>
         protected char[] candidate_envChar = new[] { '%', '~', '$' };
 
-        /// <summary>
-        /// 宛先に変数が含まれている場合、事前にSSHでコマンドを実行してパスを取得
-        /// </summary>
-        /// <param name="session"></param>
-        /// <param name="remotePath"></param>
-        /// <returns></returns>
-        protected string ExpandRemotePath(SshSession session, string remotePath)
-        {
-            if (candidate_envChar.Any(x => remotePath.Contains(x)))
-            {
-                var client = session.CreateAndConnectSshClient();
-                SshCommand command = client.CreateCommand($"echo {remotePath}");
-                command.Execute();
-
-                List<string> splitResult = pattern_return.Split(command.Result).ToList();
-                return splitResult.Count > 0 ? splitResult[0] : null;
-            }
-            return remotePath;
-        }
-
         protected PSSsh.Lib.Platform CheckRemotePlatform(SshSession session)
         {
             var client = session.CreateAndConnectSshClient();
