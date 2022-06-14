@@ -180,7 +180,7 @@ namespace PSSsh.Cmdlet
         /// リモートパスに環境変数を含んだパスであるかどうかを判定する為の文字。
         /// Windows用⇒%、Linux/Mac用⇒~, $
         /// </summary>
-        private char[] candidate_envChar = new[] { '%', '~', '$' };
+        protected char[] candidate_envChar = new[] { '%', '~', '$' };
 
         /// <summary>
         /// 宛先に変数が含まれている場合、事前にSSHでコマンドを実行してパスを取得

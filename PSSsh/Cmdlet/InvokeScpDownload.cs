@@ -70,7 +70,12 @@ namespace PSSsh.Cmdlet
                 Effemeral = true,
             };
 
-            this.RemotePath = ExpandRemotePath(this.Session, this.RemotePath);
+            //this.RemotePath = ExpandRemotePath(this.Session, this.RemotePath);
+            if (candidate_envChar.Any(x => RemotePath.Contains(x)))
+            {
+                this.RemotePath = Session.ExecCommandOneLine($"echo {RemotePath}");
+            }
+
             /*
             //  宛先に変数が含まれている場合、事前にSSHでコマンドを実行してパスを取得
             if (RemotePath.Contains("~") || RemotePath.Contains("%") || RemotePath.Contains("$"))
