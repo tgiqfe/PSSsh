@@ -90,19 +90,6 @@ namespace PSSsh.Cmdlet
                 {
                     SshCommand command = client.CreateCommand(line);
                     command.Execute();
-
-                    /*
-                    List<string> splitResult = pattern_return.Split(command.Result).ToList();
-
-                    if (splitResult.Count > 0 && string.IsNullOrEmpty(splitResult[0]))
-                    {
-                        splitResult.RemoveAt(0);
-                    }
-                    if (splitResult.Count > 0 && string.IsNullOrEmpty(splitResult[splitResult.Count - 1]))
-                    {
-                        splitResult.RemoveAt(splitResult.Count - 1);
-                    }
-                    */
                     var splitResult = pattern_return.Split(command.Result).Trim();
 
                     if (string.IsNullOrEmpty(this.OutputFile))
