@@ -37,6 +37,10 @@ namespace PSSsh.Cmdlet
         [Parameter, Alias("Output")]
         public string OutputFile { get; set; }
 
+        [Parameter]
+        public SwitchParameter Sudo { get; set; }
+
+
         #endregion
 
         protected override void BeginProcessing()

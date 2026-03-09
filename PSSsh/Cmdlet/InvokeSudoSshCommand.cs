@@ -1,11 +1,12 @@
 ﻿using Renci.SshNet;
 using System.Management.Automation;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 
 namespace PSSsh.Cmdlet
 {
-    [Cmdlet(VerbsLifecycle.Invoke, "RootSshCommand")]
+    [Cmdlet(VerbsLifecycle.Invoke, "SudoSshCommand")]
     public class InvokeSudoSshCommand : PSCmdletExtension
     {
         #region Command Parameters
@@ -36,6 +37,9 @@ namespace PSSsh.Cmdlet
 
         [Parameter, Alias("Output")]
         public string OutputFile { get; set; }
+
+        [Parameter]
+        public SwitchParameter Sudo { get; set; }
 
         #endregion
 
@@ -116,30 +120,56 @@ namespace PSSsh.Cmdlet
                     return;
                 }
 
-                using (var shell = client.CreateShellStream("terminal", 80, 24, 800, 600, 1024))
+                if (this.Sudo)
                 {
-                    var output = new StringBuilder();
-
-                    foreach (var command in this.Command)
+                    using (var shell = client.CreateShellStream("terminal", 80, 24, 800, 600, 1024))
                     {
-                        shell.WriteLine($"sudo -S {command}");
-                        Thread.Sleep(500);
-
-                        var prompt = shell.Expect(
-                            new Regex(@"(\[sudo\] password for .+:|password:)", RegexOptions.IgnoreCase), TimeSpan.FromSeconds(2));
-                        if (!string.IsNullOrEmpty(prompt))
+                        var output = new StringBuilder();
+                        foreach (var command in this.Command)
                         {
-                            shell.WriteLine(this.Password);
+                            shell.WriteLine($"sudo -S {command}");
                             Thread.Sleep(500);
+
+                            var prompt = shell.Expect(
+                                new Regex(@"(\[sudo\] password for .+:|password:)", RegexOptions.IgnoreCase), TimeSpan.FromSeconds(2));
+                            if (!string.IsNullOrEmpty(prompt))
+                            {
+                                shell.WriteLine(this.Password);
+                                Thread.Sleep(500);
+                            }
+
+                            var result = shell.Expect(new Regex(@"[\$#>]\s*$"), TimeSpan.FromSeconds(5));
+                            output.AppendLine(result);
                         }
 
-                        var result = shell.Expect(new Regex(@"[\$#>]\s*$"), TimeSpan.FromSeconds(5));
-                        output.AppendLine(result);
+                        var finalOutput = CleanOutput(output.ToString());
+                        WriteObject(finalOutput);
                     }
-
-                    var finalOutput = CleanOutput(output.ToString());
-                    WriteObject(finalOutput);
                 }
+                else
+                {
+                    using (var ssh = new SshClient(info))
+                    {
+                        ssh.Connect();
+                        foreach (var command in this.Command)
+                        {
+                            var cmd = ssh.CreateCommand(command);
+                            cmd.Execute();
+
+                            var stdOut = cmd.Result;
+                            var stdErr = cmd.Error;
+                            if (stdOut != null)
+                            {
+                                WriteObject(stdOut);
+                            }
+                            if (cmd.ExitStatus != 0 && stdErr != null)
+                            {
+                                WriteError(new ErrorRecord(new Exception(stdErr), "CommandExecutionFailed", ErrorCategory.InvalidOperation, this.Command));
+                            }
+                        }
+                    }
+                }
+
                 client.Disconnect();
             }
         }
