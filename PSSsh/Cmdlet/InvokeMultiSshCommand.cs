@@ -1,4 +1,5 @@
 ﻿using Renci.SshNet;
+using System.Collections.Concurrent;
 using System.Management.Automation;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -6,8 +7,8 @@ using System.Text.RegularExpressions;
 
 namespace PSSsh.Cmdlet
 {
-    [Cmdlet(VerbsLifecycle.Invoke, "SshCommand")]
-    public class InvokeSshCommand : PSCmdletExtension
+    [Cmdlet(VerbsLifecycle.Invoke, "MultiSshCommand")]
+    public class InvokeMultiSshCommand : PSCmdletExtension
     {
         #region Command Parameters
 
@@ -44,7 +45,17 @@ namespace PSSsh.Cmdlet
         [Parameter]
         public SwitchParameter Sudo { get; set; }
 
+        [Parameter]
+        public int MaxParallelThreads { get; set; } = 10;
+
+        [Parameter]
+        public int TimeoutSeconds { get; set; } = 300;
+
         #endregion
+
+        private readonly object _writeLock = new object();
+        private readonly ConcurrentBag<ErrorRecord> _errors = new ConcurrentBag<ErrorRecord>();
+        private readonly ConcurrentBag<(string Host, string Output)> _results = new ConcurrentBag<(string, string)>();
 
         protected override void BeginProcessing()
         {
@@ -69,16 +80,52 @@ namespace PSSsh.Cmdlet
                    ToArray();
             }
 
-            var servers = this.Server.SelectMany(s => ExpandIpRange(s));
-            foreach (var server in servers)
+            var servers = this.Server.SelectMany(s => ExpandIpRange(s)).ToList();
+
+            // 並列実行オプションの設定
+            var parallelOptions = new ParallelOptions
             {
-                ConnectionInfo info = new ConnectionInfo(
-                    server,
-                    this.Port ?? 22,
-                    this.User,
-                    new PasswordAuthenticationMethod(this.User, this.Password));
-                RunSshCommand(info);
+                MaxDegreeOfParallelism = this.MaxParallelThreads
+            };
+
+            // 並列でSSHコマンドを実行
+            Parallel.ForEach(servers, parallelOptions, server =>
+            {
+                try
+                {
+                    ConnectionInfo info = new ConnectionInfo(
+                        server,
+                        this.Port ?? 22,
+                        this.User,
+                        new PasswordAuthenticationMethod(this.User, this.Password));
+                    RunSshCommand(info);
+                }
+                catch (Exception ex)
+                {
+                    _errors.Add(new ErrorRecord(
+                        ex,
+                        "ParallelExecutionError",
+                        ErrorCategory.OperationStopped,
+                        server));
+                }
+            });
+
+            // メインスレッドで結果を出力
+            foreach (var (host, output) in _results.OrderBy(r => r.Host))
+            {
+                WriteObject($"[{host}]{Environment.NewLine}{output}");
             }
+
+            // エラーを出力
+            foreach (var error in _errors)
+            {
+                WriteError(error);
+            }
+        }
+
+        protected override void EndProcessing()
+        {
+            base.EndProcessing();
         }
 
         private string[] ExpandIpRange(string ipRange)
@@ -119,7 +166,11 @@ namespace PSSsh.Cmdlet
                 client.Connect();
                 if (!client.IsConnected)
                 {
-                    WriteError(new ErrorRecord(new Exception("Failed to connect to the SSH server."), "ConnectionFailed", ErrorCategory.ConnectionError, null));
+                    _errors.Add(new ErrorRecord(
+                        new Exception("Failed to connect to the SSH server."),
+                        "ConnectionFailed",
+                        ErrorCategory.ConnectionError,
+                        info.Host));
                     return;
                 }
 
@@ -127,50 +178,81 @@ namespace PSSsh.Cmdlet
                 {
                     using (var shell = client.CreateShellStream("terminal", 80, 24, 800, 600, 1024))
                     {
+                        // 初期プロンプトを待つ（重要）
+                        var initialPrompt = shell.Expect(new Regex(@"[\$#>]\s*$"), TimeSpan.FromSeconds(5));
+                        if (string.IsNullOrEmpty(initialPrompt))
+                        {
+                            _errors.Add(new ErrorRecord(
+                                new Exception("Failed to get initial shell prompt."),
+                                "ShellInitializationFailed",
+                                ErrorCategory.ConnectionError,
+                                info.Host));
+                            return;
+                        }
+
                         var output = new StringBuilder();
                         foreach (var command in this.Command)
                         {
                             shell.WriteLine($"sudo -S {command}");
-                            Thread.Sleep(500);
 
-                            var prompt = shell.Expect(
-                                new Regex(@"(\[sudo\] password for .+:|password:)", RegexOptions.IgnoreCase), TimeSpan.FromSeconds(2));
-                            if (!string.IsNullOrEmpty(prompt))
+                            // パスワードプロンプトまたはコマンド実行完了を待つ
+                            var response = shell.Expect(
+                                new Regex(@"(\[sudo\] password for .+:|password:|[\$#>]\s*$)", RegexOptions.IgnoreCase), 
+                                TimeSpan.FromSeconds(this.TimeoutSeconds));
+                            
+                            if (string.IsNullOrEmpty(response))
                             {
-                                shell.WriteLine(this.Password);
-                                Thread.Sleep(500);
+                                _errors.Add(new ErrorRecord(
+                                    new Exception($"Command '{command}' timed out."),
+                                    "CommandTimeout",
+                                    ErrorCategory.OperationTimeout,
+                                    info.Host));
+                                break;
                             }
 
-                            var result = shell.Expect(new Regex(@"[\$#>]\s*$"), TimeSpan.FromSeconds(5));
-                            output.AppendLine(result);
+                            // パスワードプロンプトが含まれている場合
+                            if (response.Contains("password", StringComparison.OrdinalIgnoreCase))
+                            {
+                                shell.WriteLine(this.Password);
+                                // コマンド実行完了を待つ
+                                var result = shell.Expect(new Regex(@"[\$#>]\s*$"), TimeSpan.FromSeconds(this.TimeoutSeconds));
+                                output.AppendLine(result);
+                            }
+                            else
+                            {
+                                // パスワード不要の場合（sudoキャッシュ有効時など）
+                                output.AppendLine(response);
+                            }
                         }
+                        
                         var finalOutput = CleanOutput(output.ToString());
                         SaveOutput(info.Host, finalOutput);
-
-                        WriteObject(finalOutput);
+                        
+                        // 結果をコレクションに追加（メインスレッドで後で出力）
+                        _results.Add((info.Host, finalOutput));
                     }
                 }
                 else
                 {
-                    using (var ssh = new SshClient(info))
+                    var output = new StringBuilder();
+                    foreach (var command in this.Command)
                     {
-                        var output = new StringBuilder();
-                        ssh.Connect();
-                        foreach (var command in this.Command)
-                        {
-                            var cmd = ssh.CreateCommand(command);
-                            cmd.CommandTimeout = TimeSpan.FromHours(24);
-                            cmd.Execute();
+                        var cmd = client.CreateCommand(command);
+                        cmd.CommandTimeout = TimeSpan.FromSeconds(this.TimeoutSeconds);
+                        cmd.Execute();
 
-                            output.AppendLine(cmd.Result);
+                        output.AppendLine(cmd.Result);
+                        if (!string.IsNullOrEmpty(cmd.Error))
+                        {
                             output.AppendLine(cmd.Error);
                         }
-
-                        string outputText = output.ToString();
-                        SaveOutput(info.Host, outputText);
-
-                        WriteObject(outputText);
                     }
+
+                    string outputText = output.ToString();
+                    SaveOutput(info.Host, outputText);
+                    
+                    // 結果をコレクションに追加（メインスレッドで後で出力）
+                    _results.Add((info.Host, outputText));
                 }
 
                 client.Disconnect();
@@ -181,7 +263,10 @@ namespace PSSsh.Cmdlet
         {
             if (!string.IsNullOrEmpty(this.OutputFile))
             {
-                File.AppendAllText(this.OutputFile, $"[{host}]\n{output}\n");
+                lock (_writeLock)
+                {
+                    File.AppendAllText(this.OutputFile, $"[{host}]\n{output}\n\n");
+                }
             }
             else if (!string.IsNullOrEmpty(this.OutputDirectory))
             {

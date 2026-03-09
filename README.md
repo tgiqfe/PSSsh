@@ -1,6 +1,6 @@
 # PSSsh
 
-v0.2
+v0.3
 
-.NET 6 / PowerShell 7.2.*
+.NET 10 / PowerShell 7.5.*
 
