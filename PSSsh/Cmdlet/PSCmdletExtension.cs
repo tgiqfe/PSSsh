@@ -9,11 +9,6 @@ namespace PSSsh.Cmdlet
 {
     public class PSCmdletExtension : PSCmdlet
     {
-        /// <summary>
-        /// Timeout for connecting to the SSH server, in seconds.
-        /// </summary>
-        protected const int CONNECT_TIMEOUT = 10;
-
         #region Change CurrentDirectory
 
         private string _currentDirectory = null;

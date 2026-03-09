@@ -6,12 +6,12 @@ using System.Text.RegularExpressions;
 namespace PSSsh.Cmdlet
 {
     [Cmdlet(VerbsLifecycle.Invoke, "RootSshCommand")]
-    public class InvokeRootSshCommand : PSCmdletExtension
+    public class InvokeSudoSshCommand : PSCmdletExtension
     {
         #region Command Parameters
 
         [Parameter(Position = 0)]
-        public string Server { get; set; }
+        public string[] Server { get; set; }
 
         [Parameter]
         public int? Port { get; set; }
@@ -21,9 +21,6 @@ namespace PSSsh.Cmdlet
 
         [Parameter]
         public string Password { get; set; }
-
-        [Parameter]
-        public string PasswordFile { get; set; }
 
         [Parameter]
         public PSCredential Credential { get; set; }
@@ -45,6 +42,12 @@ namespace PSSsh.Cmdlet
         protected override void BeginProcessing()
         {
             base.BeginProcessing();
+
+            if (this.Credential != null)
+            {
+                this.User = this.Credential.UserName;
+                this.Password = this.Credential.GetNetworkCredential().Password;
+            }
         }
 
         protected override void ProcessRecord()
@@ -59,12 +62,51 @@ namespace PSSsh.Cmdlet
                    ToArray();
             }
 
-            ConnectionInfo info = new ConnectionInfo(
-                this.Server,
-                this.Port ?? 22,
-                this.User,
-                new PasswordAuthenticationMethod(this.User, this.Password));
+            var servers = this.Server.SelectMany(s => ExpandIpRange(s));
+            foreach (var server in servers)
+            {
+                ConnectionInfo info = new ConnectionInfo(
+                    server,
+                    this.Port ?? 22,
+                    this.User,
+                    new PasswordAuthenticationMethod(this.User, this.Password));
+                RunSshCommand(info);
+            }
+        }
 
+        private string[] ExpandIpRange(string ipRange)
+        {
+            if (!ipRange.Contains('~')) return new[] { ipRange };
+
+            var parts = ipRange.Split('~');
+            if (parts.Length != 2) return new[] { ipRange };
+
+            // 開始IPアドレスを解析
+            var startIp = parts[0].Trim();
+            var ipParts = startIp.Split('.');
+            if (ipParts.Length != 4) return new[] { ipRange };
+
+            // 終了値を取得
+            if (!int.TryParse(parts[1].Trim(), out int endValue)) return new[] { ipRange };
+
+            // 開始値を取得
+            if (!int.TryParse(ipParts[3], out int startValue)) return new[] { ipRange };
+
+            // IPアドレスのプレフィックス（最初の3オクテット）
+            var prefix = $"{ipParts[0]}.{ipParts[1]}.{ipParts[2]}.";
+
+            // 範囲のIPアドレスを生成
+            var result = new List<string>();
+            for (int i = startValue; i <= endValue; i++)
+            {
+                result.Add($"{prefix}{i}");
+            }
+
+            return result.ToArray();
+        }
+
+        private void RunSshCommand(ConnectionInfo info)
+        {
             using (var client = new SshClient(info))
             {
                 client.Connect();
@@ -77,7 +119,7 @@ namespace PSSsh.Cmdlet
                 using (var shell = client.CreateShellStream("terminal", 80, 24, 800, 600, 1024))
                 {
                     var output = new StringBuilder();
-                    
+
                     foreach (var command in this.Command)
                     {
                         shell.WriteLine($"sudo -S {command}");
@@ -122,10 +164,7 @@ namespace PSSsh.Cmdlet
                 var isEmpty = string.IsNullOrWhiteSpace(line);
 
                 // 最初の空行をスキップ
-                if (!hasStarted && isEmpty)
-                {
-                    continue;
-                }
+                if (!hasStarted && isEmpty) continue;
 
                 if (isEmpty)
                 {
