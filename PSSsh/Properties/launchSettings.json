@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "プロファイル 1": {
+      "commandName": "Executable",
+      "executablePath": "pwsh.exe",
+      "commandLineArgs": "-ExecutionPolicy Unrestricted -NoExit -Command \"Import-Module .\\PSSsh.dll\""
+    }
+  }
+}
