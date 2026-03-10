@@ -49,7 +49,7 @@ namespace PSSsh.Cmdlet
         public int MaxParallelThreads { get; set; } = 10;
 
         [Parameter]
-        public int TimeoutSeconds { get; set; } = 300;
+        public int TimeoutSeconds { get; set; } = 7200;
 
         #endregion
 
@@ -111,9 +111,15 @@ namespace PSSsh.Cmdlet
             });
 
             // メインスレッドで結果を出力
+            bool isFirst = true;
             foreach (var (host, output) in _results.OrderBy(r => r.Host))
             {
+                if (!isFirst)
+                {
+                    WriteObject(string.Empty);
+                }
                 WriteObject($"[{host}]{Environment.NewLine}{output}");
+                isFirst = false;
             }
 
             // エラーを出力
@@ -178,56 +184,90 @@ namespace PSSsh.Cmdlet
                 {
                     using (var shell = client.CreateShellStream("terminal", 80, 24, 800, 600, 1024))
                     {
-                        // 初期プロンプトを待つ（重要）
-                        var initialPrompt = shell.Expect(new Regex(@"[\$#>]\s*$"), TimeSpan.FromSeconds(5));
-                        if (string.IsNullOrEmpty(initialPrompt))
-                        {
-                            _errors.Add(new ErrorRecord(
-                                new Exception("Failed to get initial shell prompt."),
-                                "ShellInitializationFailed",
-                                ErrorCategory.ConnectionError,
-                                info.Host));
-                            return;
-                        }
-
+                        shell.DataReceived += (sender, e) => { };
                         var output = new StringBuilder();
+
+                        // 初期プロンプトを待つ
+                        Thread.Sleep(500);
+                        string initialPrompt = shell.Read();
+
                         foreach (var command in this.Command)
                         {
                             shell.WriteLine($"sudo -S {command}");
+                            Thread.Sleep(500);
 
-                            // パスワードプロンプトまたはコマンド実行完了を待つ
-                            var response = shell.Expect(
-                                new Regex(@"(\[sudo\] password for .+:|password:|[\$#>]\s*$)", RegexOptions.IgnoreCase), 
-                                TimeSpan.FromSeconds(this.TimeoutSeconds));
-                            
-                            if (string.IsNullOrEmpty(response))
+                            // パスワードプロンプトを検出（タイムアウト付き）
+                            var promptDetected = false;
+                            var promptOutput = new StringBuilder();
+                            var startTime = DateTime.Now;
+
+                            while ((DateTime.Now - startTime).TotalSeconds < 5)
                             {
-                                _errors.Add(new ErrorRecord(
-                                    new Exception($"Command '{command}' timed out."),
-                                    "CommandTimeout",
-                                    ErrorCategory.OperationTimeout,
-                                    info.Host));
-                                break;
+                                if (shell.DataAvailable)
+                                {
+                                    var data = shell.Read();
+                                    promptOutput.Append(data);
+
+                                    // パスワードプロンプトを検出
+                                    if (Regex.IsMatch(data, @"(password:|Password:|\[sudo\] password for)", RegexOptions.IgnoreCase))
+                                    {
+                                        promptDetected = true;
+                                        break;
+                                    }
+                                }
+                                Thread.Sleep(100);
                             }
 
-                            // パスワードプロンプトが含まれている場合
-                            if (response.Contains("password", StringComparison.OrdinalIgnoreCase))
+                            // パスワードを送信
+                            if (promptDetected)
                             {
                                 shell.WriteLine(this.Password);
-                                // コマンド実行完了を待つ
-                                var result = shell.Expect(new Regex(@"[\$#>]\s*$"), TimeSpan.FromSeconds(this.TimeoutSeconds));
-                                output.AppendLine(result);
+                                Thread.Sleep(500);
                             }
-                            else
+
+                            // コマンド結果を読み取る（プロンプト検出方式）
+                            var resultOutput = new StringBuilder();
+                            var commandStartTime = DateTime.Now;
+                            var maxTimeout = TimeSpan.FromSeconds(this.TimeoutSeconds);
+
+                            while (true)
                             {
-                                // パスワード不要の場合（sudoキャッシュ有効時など）
-                                output.AppendLine(response);
+                                // 接続切断を検出（シャットダウンコマンドなど）
+                                if (!client.IsConnected)
+                                {
+                                    break;
+                                }
+
+                                if (shell.DataAvailable)
+                                {
+                                    var data = shell.Read();
+                                    resultOutput.Append(data);
+
+                                    // シェルプロンプトを検出（コマンド完了）
+                                    if (Regex.IsMatch(data, @"^[^@]+@.*[%\$#>]\s*", RegexOptions.Multiline))
+                                    {
+                                        break;
+                                    }
+                                }
+                                else if ((DateTime.Now - commandStartTime) > maxTimeout)
+                                {
+                                    // タイムアウト
+                                    _errors.Add(new ErrorRecord(
+                                        new Exception($"Command execution timed out after {this.TimeoutSeconds} seconds."),
+                                            "CommandTimeout",
+                                            ErrorCategory.OperationTimeout,
+                                            info.Host));
+                                    break;
+                                }
+                                Thread.Sleep(100);
                             }
+
+                            output.Append(resultOutput.ToString());
                         }
-                        
+
                         var finalOutput = CleanOutput(output.ToString());
                         SaveOutput(info.Host, finalOutput);
-                        
+
                         // 結果をコレクションに追加（メインスレッドで後で出力）
                         _results.Add((info.Host, finalOutput));
                     }
@@ -288,7 +328,8 @@ namespace PSSsh.Cmdlet
                 // パスワードプロンプト、sudoコマンドエコー、シェルプロンプトを除外
                 if (line.Contains("[sudo] password for") ||
                     line.Contains("sudo -S") ||
-                    Regex.IsMatch(line, @"^[^@]+@[^:]+:.*[\$#>]\s*$"))
+                    Regex.IsMatch(line, @"^[^@]+@.*[%\$#>]\s*") ||
+                    Regex.IsMatch(line, @"^\s*%\s*$"))
                 {
                     continue;
                 }
