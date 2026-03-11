@@ -8,6 +8,11 @@ namespace PSSsh.Lib
 {
     internal class Functions
     {
+        /// <summary>
+        /// IPアドレスの範囲を決定して返す
+        /// </summary>
+        /// <param name="ipRange"></param>
+        /// <returns></returns>
         public static string[] ExpandIpRange(string ipRange)
         {
             if (!ipRange.Contains('~')) return new[] { ipRange };
@@ -37,6 +42,28 @@ namespace PSSsh.Lib
             }
 
             return result.ToArray();
+        }
+
+
+        /// <summary>
+        /// ログファイル出力
+        /// </summary>
+        private static readonly object _writeLock = new object();
+        public static void SaveOutput(string outputFile, string outputDirectory, string host, string output)
+        {
+            if (!string.IsNullOrEmpty(outputFile))
+            {
+                lock (_writeLock)
+                {
+                    File.AppendAllText(outputFile, $"[{host}]\n{output}\n\n");
+                }
+            }
+            else if (!string.IsNullOrEmpty(outputDirectory))
+            {
+                var fileName = $"{host}_{DateTime.Now:yyyyMMddHHmmss}.txt";
+                var filePath = Path.Combine(outputDirectory, fileName);
+                File.WriteAllText(filePath, output);
+            }
         }
     }
 }
