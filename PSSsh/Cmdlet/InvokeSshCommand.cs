@@ -44,7 +44,7 @@ namespace PSSsh.Cmdlet
         public SwitchParameter Sudo { get; set; }
 
         [Parameter]
-        public int MaxParallelThreads { get; set; }
+        public int MaxParallelThreads { get; set; } = 100;
 
         [Parameter]
         public int TimeoutSeconds { get; set; } = 7200;
@@ -123,6 +123,7 @@ namespace PSSsh.Cmdlet
                     }
                 });
             }
+            Functions.SaveFinalOutput(_results, this.OutputFile);
 
             // メインスレッドで結果を出力
             bool isFirst = true;
@@ -135,7 +136,7 @@ namespace PSSsh.Cmdlet
                 WriteObject($"[{host}]{Environment.NewLine}{output}");
                 isFirst = false;
             }
-
+            
             // エラーを出力
             foreach (var error in _errors)
             {
