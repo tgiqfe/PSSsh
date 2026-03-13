@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace PSSsh.Lib
+﻿namespace PSSsh.Lib
 {
     internal class Functions
     {
@@ -58,7 +52,7 @@ namespace PSSsh.Lib
                     File.AppendAllText(outputFile, $"[{host}]\n{output}\n\n");
                 }
             }
-            else if (!string.IsNullOrEmpty(outputDirectory))
+            if (!string.IsNullOrEmpty(outputDirectory))
             {
                 var fileName = $"{host}_{DateTime.Now:yyyyMMddHHmmss}.txt";
                 var filePath = Path.Combine(outputDirectory, fileName);
