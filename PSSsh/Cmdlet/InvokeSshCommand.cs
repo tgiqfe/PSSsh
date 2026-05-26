@@ -44,7 +44,10 @@ namespace PSSsh.Cmdlet
         public SwitchParameter Sudo { get; set; }
 
         [Parameter]
-        public int MaxParallelThreads { get; set; }
+        public string SuCommand { get; set; }
+
+        [Parameter]
+        public int MaxParallelThreads { get; set; } = 100;
 
         [Parameter]
         public int TimeoutSeconds { get; set; } = 7200;
@@ -123,6 +126,7 @@ namespace PSSsh.Cmdlet
                     }
                 });
             }
+            Functions.SaveFinalOutput(_results, this.OutputFile);
 
             // メインスレッドで結果を出力
             bool isFirst = true;
@@ -165,118 +169,253 @@ namespace PSSsh.Cmdlet
 
                 if (this.Sudo)
                 {
-                    //  Sudoモード
-                    using (var shell = client.CreateShellStream("terminal", 80, 24, 800, 600, 1024))
+                    if (string.IsNullOrEmpty(this.SuCommand))
                     {
-                        var output = new StringBuilder();
-
-                        // 初期プロンプトを待つ
-                        var initialPrompt = shell.Expect(new Regex(@"[\$#>%]\s*$"), TimeSpan.FromSeconds(5));
-
-                        foreach (var command in this.Command)
-                        {
-                            shell.WriteLine($"sudo -S {command}");
-                            
-                            var commandOutput = new StringBuilder();
-                            var startTime = DateTime.Now;
-                            var passwordSent = false;
-                            var maxTimeout = TimeSpan.FromSeconds(this.TimeoutSeconds);
-
-                            while ((DateTime.Now - startTime) < maxTimeout)
-                            {
-                                if (!client.IsConnected) break;
-
-                                if (shell.DataAvailable)
-                                {
-                                    var data = shell.Read();
-                                    commandOutput.Append(data);
-
-                                    // パスワードプロンプトを検出してパスワード送信
-                                    if (!passwordSent && Regex.IsMatch(commandOutput.ToString(), 
-                                        @"(password:|Password:|\[sudo\] password for)", RegexOptions.IgnoreCase))
-                                    {
-                                        shell.WriteLine(this.Password);
-                                        passwordSent = true;
-                                        continue;
-                                    }
-
-                                    // プロンプト検出（コマンド完了）
-                                    if (Regex.IsMatch(data, @"[\$#>%]\s*$", RegexOptions.Multiline))
-                                    {
-                                        break;
-                                    }
-                                }
-                                else
-                                {
-                                    Thread.Sleep(100);
-                                }
-                            }
-
-                            // タイムアウトチェック
-                            if ((DateTime.Now - startTime) >= maxTimeout)
-                            {
-                                _errors.Add(new ErrorRecord(
-                                    new Exception($"Command '{command}' execution timed out after {this.TimeoutSeconds} seconds."),
-                                    "CommandTimeout",
-                                    ErrorCategory.OperationTimeout,
-                                    info.Host));
-                                break;
-                            }
-
-                            output.Append(commandOutput.ToString());
-                        }
-
-                        var finalOutput = CleanOutput(output.ToString());
-                        SaveOutput(info.Host, finalOutput);
-
-                        // 結果をコレクションに追加（メインスレッドで後で出力）
-                        _results.Add((info.Host, finalOutput));
+                        ProcessSudoMode(info, client);
+                    }
+                    else
+                    {
+                        ProcessSudoAndRootMode(info, client);
                     }
                 }
                 else
                 {
-                    //  通常モード
-                    var output = new StringBuilder();
-                    foreach (var command in this.Command)
-                    {
-                        var cmd = client.CreateCommand(command);
-                        cmd.CommandTimeout = TimeSpan.FromSeconds(this.TimeoutSeconds);
-                        cmd.Execute();
-
-                        output.AppendLine(cmd.Result);
-                        if (!string.IsNullOrEmpty(cmd.Error))
-                        {
-                            output.AppendLine(cmd.Error);
-                        }
-                    }
-
-                    string outputText = output.ToString();
-                    SaveOutput(info.Host, outputText);
-
-                    // 結果をコレクションに追加（メインスレッドで後で出力）
-                    _results.Add((info.Host, outputText));
+                    ProcessNormalMode(info, client);
                 }
 
                 client.Disconnect();
             }
         }
 
-        private void SaveOutput(string host, string output)
+        /// <summary>
+        /// Run in sudo mode, then switch to root mode using su command. 
+        /// </summary>
+        /// <param name="info"></param>
+        /// <param name="client"></param>
+        private void ProcessSudoAndRootMode(ConnectionInfo info, SshClient client)
         {
-            if (!string.IsNullOrEmpty(this.OutputFile))
+            using (var shell = client.CreateShellStream("terminal", 80, 24, 800, 600, 1024))
             {
-                lock (_writeLock)
+                shell.DataReceived += (sender, e) => { };
+                var output = new StringBuilder();
+
+                // 初期プロンプトを待つ
+                Thread.Sleep(500);
+                string initialPrompt = shell.Read();
+
+                shell.WriteLine(this.SuCommand);
+                Thread.Sleep(500);
+                var promptDetected = false;
+                var promptOutput = new StringBuilder();
+                var startTime = DateTime.Now;
+                while ((DateTime.Now - startTime).TotalSeconds < 5)
                 {
-                    File.AppendAllText(this.OutputFile, $"[{host}]\n{output}\n\n");
+                    if (shell.DataAvailable)
+                    {
+                        var data = shell.Read();
+                        promptOutput.Append(data);
+                        if (Regex.IsMatch(data, @"(password:|Password:|パスワード:)", RegexOptions.IgnoreCase))
+                        {
+                            promptDetected = true;
+                            break;
+                        }
+                    }
+                    Thread.Sleep(100);
                 }
-            }
-            else if (!string.IsNullOrEmpty(this.OutputDirectory))
-            {
-                var fileName = $"{host}_{DateTime.Now:yyyyMMddHHmmss}.txt";
-                var filePath = Path.Combine(this.OutputDirectory, fileName);
-                File.WriteAllText(filePath, output);
+
+                // パスワードを送信
+                if (promptDetected)
+                {
+                    shell.WriteLine(this.Password);
+                    Thread.Sleep(500);
+                }
+
+                //  以降、rootで実行
+                foreach (var command in this.Command)
+                {
+                    shell.WriteLine(command);
+                    Thread.Sleep(500);
+
+                    // コマンド結果を読み取る（プロンプト検出方式）
+                    var resultOutput = new StringBuilder();
+                    var commandStartTime = DateTime.Now;
+                    var maxTimeout = TimeSpan.FromSeconds(this.TimeoutSeconds);
+
+                    while (true)
+                    {
+                        // 接続切断を検出（シャットダウンコマンドなど）
+                        if (!client.IsConnected)
+                        {
+                            break;
+                        }
+
+                        if (shell.DataAvailable)
+                        {
+                            var data = shell.Read();
+                            resultOutput.Append(data);
+
+                            // シェルプロンプトを検出（コマンド完了）
+                            if (Regex.IsMatch(data, @"[%\$#>]\s*", RegexOptions.Multiline))
+                            {
+                                break;
+                            }
+                        }
+                        else if ((DateTime.Now - commandStartTime) > maxTimeout)
+                        {
+                            // タイムアウト
+                            _errors.Add(new ErrorRecord(
+                                new Exception($"Command execution timed out after {this.TimeoutSeconds} seconds."),
+                                "CommandTimeout",
+                                ErrorCategory.OperationTimeout,
+                                info.Host));
+                            break;
+                        }
+                        Thread.Sleep(100);
+                    }
+
+                    var firstReturnPos = resultOutput.ToString().IndexOf(Environment.NewLine, 1);
+                    //var hashIndexPos = resultOutput.ToString().IndexOf("#");
+                    var lastReturnPos = resultOutput.ToString().LastIndexOf(Environment.NewLine);
+                    var text = resultOutput.ToString().Substring(firstReturnPos, lastReturnPos - firstReturnPos);
+                    output.Append(text);
+                }
+
+                var outputText = CleanOutput(output.ToString());
+                Functions.SaveOutput(this.OutputFile, this.OutputDirectory, info.Host, outputText);
+
+                // 結果をコレクションに追加（メインスレッドで後で出力）
+                _results.Add((info.Host, outputText));
             }
         }
+
+        /// <summary>
+        /// Sudo mode.
+        /// </summary>
+        /// <param name="info"></param>
+        /// <param name="client"></param>
+        private void ProcessSudoMode(ConnectionInfo info, SshClient client)
+        {
+            using (var shell = client.CreateShellStream("terminal", 80, 24, 800, 600, 1024))
+            {
+                shell.DataReceived += (sender, e) => { };
+                var output = new StringBuilder();
+
+                // 初期プロンプトを待つ
+                Thread.Sleep(500);
+                string initialPrompt = shell.Read();
+
+                foreach (var command in this.Command)
+                {
+                    shell.WriteLine($"sudo -S {command}");
+                    Thread.Sleep(500);
+
+                    // パスワードプロンプトを検出（タイムアウト付き）
+                    var promptDetected = false;
+                    var promptOutput = new StringBuilder();
+                    var startTime = DateTime.Now;
+
+                    while ((DateTime.Now - startTime).TotalSeconds < 5)
+                    {
+                        if (shell.DataAvailable)
+                        {
+                            var data = shell.Read();
+                            promptOutput.Append(data);
+
+                            // パスワードプロンプトを検出
+                            if (Regex.IsMatch(data, @"(password:|Password:|\[sudo\] password for|\[sudo\].+パスワード:)", RegexOptions.IgnoreCase))
+                            {
+                                promptDetected = true;
+                                break;
+                            }
+                        }
+                        Thread.Sleep(100);
+                    }
+
+                    // パスワードを送信
+                    if (promptDetected)
+                    {
+                        shell.WriteLine(this.Password);
+                        Thread.Sleep(500);
+                    }
+
+                    // コマンド結果を読み取る（プロンプト検出方式）
+                    var resultOutput = new StringBuilder();
+                    var commandStartTime = DateTime.Now;
+                    var maxTimeout = TimeSpan.FromSeconds(this.TimeoutSeconds);
+
+                    while (true)
+                    {
+                        // 接続切断を検出（シャットダウンコマンドなど）
+                        if (!client.IsConnected)
+                        {
+                            break;
+                        }
+
+                        if (shell.DataAvailable)
+                        {
+                            var data = shell.Read();
+                            resultOutput.Append(data);
+
+                            // シェルプロンプトを検出（コマンド完了）
+                            if (Regex.IsMatch(data, @"[%\$#>]\s*", RegexOptions.Multiline))
+                            {
+                                break;
+                            }
+                        }
+                        else if ((DateTime.Now - commandStartTime) > maxTimeout)
+                        {
+                            // タイムアウト
+                            _errors.Add(new ErrorRecord(
+                                new Exception($"Command execution timed out after {this.TimeoutSeconds} seconds."),
+                                "CommandTimeout",
+                                ErrorCategory.OperationTimeout,
+                                info.Host));
+                            break;
+                        }
+                        Thread.Sleep(100);
+                    }
+
+                    output.Append(resultOutput.ToString());
+                }
+
+                var outputText = CleanOutput(output.ToString());
+                Functions.SaveOutput(this.OutputFile, this.OutputDirectory, info.Host, outputText);
+
+                // 結果をコレクションに追加（メインスレッドで後で出力）
+                _results.Add((info.Host, outputText));
+            }
+        }
+
+        /// <summary>
+        /// Normal mode.
+        /// </summary>
+        /// <param name="info"></param>
+        /// <param name="client"></param>
+        private void ProcessNormalMode(ConnectionInfo info, SshClient client)
+        {
+            var output = new StringBuilder();
+            foreach (var command in this.Command)
+            {
+                var cmd = client.CreateCommand(command);
+                cmd.CommandTimeout = TimeSpan.FromSeconds(this.TimeoutSeconds);
+                cmd.Execute();
+
+                output.AppendLine(cmd.Result);
+                if (!string.IsNullOrEmpty(cmd.Error))
+                {
+                    output.AppendLine(cmd.Error);
+                }
+            }
+
+            string outputText = output.ToString();
+            Functions.SaveOutput(this.OutputFile, this.OutputDirectory, info.Host, outputText);
+
+            // 結果をコレクションに追加（メインスレッドで後で出力）
+            _results.Add((info.Host, outputText));
+        }
+
+
+
 
         private string CleanOutput(string output)
         {
