@@ -194,7 +194,7 @@ namespace PSSsh.Cmdlet
                                     promptOutput.Append(data);
 
                                     // パスワードプロンプトを検出
-                                    if (Regex.IsMatch(data, @"(password:|Password:|\[sudo\] password for)", RegexOptions.IgnoreCase))
+                                    if (Regex.IsMatch(data, @"(password:|Password:|\[sudo\] password for|\[sudo\].+パスワード:)", RegexOptions.IgnoreCase))
                                     {
                                         promptDetected = true;
                                         break;

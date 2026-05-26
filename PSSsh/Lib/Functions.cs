@@ -74,6 +74,7 @@ namespace PSSsh.Lib
         //  出力結果を改めて保存。
         public static void SaveFinalOutput(ConcurrentBag<(string Host, string Output)> results, string outputFile)
         {
+            if (string.IsNullOrEmpty(outputFile)) return;
             lock (_writeLock)
             {
                 var parent = Path.GetDirectoryName(outputFile);
